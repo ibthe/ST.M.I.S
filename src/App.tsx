@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow, ResizeDirection } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 type EngineStatus = {
   ok: boolean; offline: boolean; tesseract_found: boolean;
@@ -106,7 +106,7 @@ export default function App() {
   async function handleResize(event: React.MouseEvent<HTMLDivElement>) {
     event.preventDefault();
     event.stopPropagation();
-    try { await getCurrentWindow().startResizeDragging(ResizeDirection.SouthEast); }
+    try { await getCurrentWindow().startResizeDragging("SouthEast"); }
     catch (error) { setEngineError("Не удалось изменить размер окна: " + String(error)); }
   }
 
