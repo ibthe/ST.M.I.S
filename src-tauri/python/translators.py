@@ -8,10 +8,11 @@ def _request(url, payload, headers=None, method="POST"):
     with urllib.request.urlopen(req, timeout=18) as response:
         return json.loads(response.read().decode("utf-8"))
 
-def _gemini(text, source, target, key):
+def _gemini(text, source, target, key, context=""):
     url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + urllib.parse.quote(key)
-    prompt = ("Translate the following text from %s to %s. Preserve meaning, names, "
-              "game terminology, tone and line breaks. Return only the translation.\n\n%s") % (source, target, text)
+    prompt = ("Translate the selected text from %s to %s. Preserve meaning, names, "
+              "game terminology, tone and line breaks. Use the surrounding dialogue only as context. "
+              "Return only the translation of the selected text.\n\nContext:\n%s\n\nSelected text:\n%s") % (source, target, context or "(no additional context)", text)
     result = _request(url, {"contents":[{"parts":[{"text":prompt}]}],
         "generationConfig":{"temperature":0.15}})
     return result["candidates"][0]["content"]["parts"][0]["text"].strip()
@@ -49,10 +50,10 @@ def _mymemory(text, source, target):
         raise RuntimeError(result.get("responseDetails","MyMemory rejected the request"))
     return result["responseData"]["translatedText"]
 
-def translate(text, source, target, mode, credentials):
+def translate(text, source, target, mode, credentials, context=""):
     """Try configured free services in priority order, then local Argos."""
     providers = {
-        "gemini": lambda: _gemini(text,source,target,credentials.get("gemini","")),
+        "gemini": lambda: _gemini(text,source,target,credentials.get("gemini",""),context),
         "deepl": lambda: _deepl(text,source,target,credentials.get("deepl","")),
         "microsoft": lambda: _azure(text,source,target,credentials),
         "mymemory": lambda: _mymemory(text,source,target),
