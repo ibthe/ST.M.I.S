@@ -43,11 +43,20 @@ fn run_local_worker(app: &AppHandle, payload: Value) -> Result<Value, String> {
         fallback
     };
     command.env("ARGOS_CHUNK_TYPE", "MINISBD");
-    if let Some(home) = runtime_home { command.env("HOME", home); }
+    if let Some(home) = runtime_home {
+        command.env("HOME", &home);
+        if cfg!(target_os = "windows") {
+            command.env("USERPROFILE", &home);
+            command.env("APPDATA", home.join("AppData").join("Roaming"));
+            command.env("LOCALAPPDATA", home.join("AppData").join("Local"));
+        }
+    }
     if let Some(bin) = runtime_bin {
         let existing = std::env::var("PATH").unwrap_or_default();
-        command.env("PATH", format!("{}:{}", bin.display(), existing));
-        command.env("TESSERACT_CMD", bin.join("tesseract"));
+        let separator = if cfg!(target_os = "windows") { ";" } else { ":" };
+        command.env("PATH", format!("{}{}{}", bin.display(), separator, existing));
+        let tesseract = if cfg!(target_os = "windows") { "tesseract.exe" } else { "tesseract" };
+        command.env("TESSERACT_CMD", bin.join(tesseract));
     }
     if let Some(lib) = runtime_lib { command.env("DYLD_LIBRARY_PATH", lib); }
     if let Ok(tessdata) = app.path().resolve("runtime/share/tessdata", tauri::path::BaseDirectory::Resource) {
