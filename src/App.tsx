@@ -110,13 +110,6 @@ export default function App() {
       </header>
 
       <section className="transparent-stage" data-tauri-drag-region aria-label="Transparent screen viewing area">
-        {blocks.length === 0 && !engineError && (
-          <div className="stage-hint" data-tauri-drag-region>
-            <span className="stage-crosshair">＋</span>
-            <span>TRANSPARENT SCREEN AREA</span>
-            <small>Your desktop remains visible here</small>
-          </div>
-        )}
         {engineError && <div className="stage-error">{engineError}</div>}
         {blocks.length > 0 && (
           <div className="result-panel">
