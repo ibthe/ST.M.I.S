@@ -39,11 +39,13 @@ TESSERACT_BIN="$(command -v tesseract)"
 cp "$TESSERACT_BIN" "$RUNTIME/bin/tesseract"
 dylibbundler -od -b -x "$RUNTIME/bin/tesseract" -d "$RUNTIME/lib" -p '@executable_path/../lib'
 
-TESSDATA="$(brew --prefix tesseract-lang)/share/tessdata"
-if [[ ! -d "$TESSDATA" ]]; then
-  TESSDATA="$(brew --prefix tesseract)/share/tessdata"
+# Locate traineddata without asking Homebrew to resolve a possibly split formula.
+TESSDATA="$(find "$(brew --prefix)/share" -type f -name 'eng.traineddata' -print -quit | xargs -r dirname)"
+if [[ -z "$TESSDATA" || ! -f "$TESSDATA/rus.traineddata" ]]; then
+  echo "Could not locate both eng.traineddata and rus.traineddata under Homebrew share." >&2
+  find "$(brew --prefix)/share" -maxdepth 4 -type f -name '*.traineddata' -print >&2 || true
+  exit 1
 fi
-test -d "$TESSDATA"
 cp -R "$TESSDATA" "$RUNTIME/share/tessdata"
 
 # Keep only the OCR languages needed by the initial UI to reduce installer size.
@@ -70,14 +72,23 @@ print(json.dumps({
     "ocr_language": "eng"
 }))
 PY
-"$RUNTIME/stmis-worker/stmis-worker" < /tmp/stmis-smoke-request.json > /tmp/stmis-smoke-result.json
+if ! "$RUNTIME/stmis-worker/stmis-worker" < /tmp/stmis-smoke-request.json > /tmp/stmis-smoke-result.json 2> /tmp/stmis-smoke-stderr.log; then
+  echo "Bundled worker process failed. stderr:" >&2
+  cat /tmp/stmis-smoke-stderr.log >&2 || true
+  echo "Bundled worker stdout:" >&2
+  cat /tmp/stmis-smoke-result.json >&2 || true
+  exit 1
+fi
 python - <<'PY'
 import json
 with open("/tmp/stmis-smoke-result.json", encoding="utf-8") as stream:
     result = json.load(stream)
-assert result.get("ok") is True, result
-assert result.get("blocks"), result
-assert any(block.get("translation") for block in result["blocks"]), result
+if result.get("ok") is not True:
+    raise SystemExit("Bundled worker returned an error: " + repr(result))
+if not result.get("blocks"):
+    raise SystemExit("OCR smoke test returned no text blocks: " + repr(result))
+if not any(block.get("translation") for block in result["blocks"]):
+    raise SystemExit("Translation smoke test returned no translation: " + repr(result))
 print("Offline OCR + English-to-Russian translation smoke test passed.")
 PY
 
