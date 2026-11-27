@@ -37,11 +37,15 @@ jobs:
         with:
           node-version: 20
       - uses: dtolnay/rust-toolchain@stable
-      - name: Set up Python for bundled macOS worker
-        if: runner.os == 'macOS'
+      - name: Set up Python for bundled offline worker
+        if: runner.os == 'macOS' || runner.os == 'Windows'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Prepare bundled offline runtime (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/package-windows-runtime.ps1
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: |
