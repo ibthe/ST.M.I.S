@@ -33,7 +33,9 @@ The package index and model downloads are setup-time operations only. The ST.M.I
 
 ## Runtime dependencies and packaging status
 
-The current development bridge expects a local Python interpreter, Python packages, Tesseract executable, Tesseract language data, and Argos language packs. These are not yet bundled into Windows/macOS installers. A release-ready installer must bundle or bootstrap the worker runtime, OCR engine/data, and selected translation models, and then pass an offline test on a clean machine.
+The Apple Silicon macOS CI pipeline now builds a self-contained runtime before Tauri bundling: PyInstaller worker + Python dependencies, Tesseract, English/Russian tessdata, and Argos en→ru / ru→en packages. A build-time smoke test sends a generated image through the packaged worker and requires a non-empty translation. Rust launches this packaged worker and points it at the bundled OCR data and Argos home directory.
+
+This path is still pending a successful CI run and a real clean-Mac install test. Windows and Intel macOS still require a separately installed Python/Tesseract/Argos environment. The app is not notarized because the project does not have an Apple Developer ID certificate.
 
 ## Language selection
 
