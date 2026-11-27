@@ -6,7 +6,7 @@ concurrency:
 
 on:
   push:
-    branches: [main, fix/transparent-overlay-layout]
+    branches: [main, fix/transparent-overlay-layout, feature/ocr-online-translation]
   pull_request:
     branches: [main]
 
@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m py_compile src-tauri/python/worker.py
+      - run: python -m py_compile src-tauri/python/worker.py src-tauri/python/ocr.py src-tauri/python/translators.py
       - run: npm install
       - run: npm run build
 
