@@ -16,7 +16,7 @@ source "$VENV/bin/activate"
 python -m pip install --upgrade pip
 python -m pip install -r src-tauri/python/requirements.txt pyinstaller
 
-# Prepare the two common English/Russian directions at build time. Runtime stays offline.
+# Install both translation directions into the bundled application data directory.
 export HOME="$RUNTIME/home"
 export ARGOS_CHUNK_TYPE=MINISBD
 argospm update
@@ -39,60 +39,11 @@ TESSERACT_BIN="$(command -v tesseract)"
 cp "$TESSERACT_BIN" "$RUNTIME/bin/tesseract"
 dylibbundler -od -b -x "$RUNTIME/bin/tesseract" -d "$RUNTIME/lib" -p '@executable_path/../lib'
 
-# Homebrew installs language packs in the tesseract-lang formula prefix,
-# not necessarily in the global Homebrew prefix.
+# tesseract-lang installs its data files under its own formula prefix.
 TESSDATA="$(brew --prefix tesseract-lang)/share/tessdata"
 if [[ ! -f "$TESSDATA/eng.traineddata" || ! -f "$TESSDATA/rus.traineddata" ]]; then
-  echo "Expected English and Russian traineddata in $TESSDATA." >&2
-  brew list --verbose tesseract-lang | grep -E 'traineddata
-
-# Keep only the OCR languages needed by the initial UI to reduce installer size.
-find "$RUNTIME/share/tessdata" -maxdepth 1 -type f ! -name 'eng.traineddata' ! -name 'rus.traineddata' ! -name 'osd.traineddata' -delete
-
-# Build-time end-to-end test: bundled OCR + bundled English-to-Russian model.
-export PATH="$RUNTIME/bin:$PATH"
-export TESSERACT_CMD="$RUNTIME/bin/tesseract"
-export TESSDATA_PREFIX="$RUNTIME/share/tessdata"
-python - <<'PY' > /tmp/stmis-smoke-request.json
-import base64, io, json
-from PIL import Image, ImageDraw, ImageFont
-image = Image.new("RGB", (1400, 300), "white")
-draw = ImageDraw.Draw(image)
-font = ImageFont.load_default(size=100)
-draw.text((60, 70), "Hello world", fill="black", font=font)
-buffer = io.BytesIO()
-image.save(buffer, format="PNG")
-print(json.dumps({
-    "action": "recognize_and_translate",
-    "image_base64": base64.b64encode(buffer.getvalue()).decode("ascii"),
-    "source_language": "en",
-    "target_language": "ru",
-    "ocr_language": "eng"
-}))
-PY
-if ! "$RUNTIME/stmis-worker/stmis-worker" < /tmp/stmis-smoke-request.json > /tmp/stmis-smoke-result.json 2> /tmp/stmis-smoke-stderr.log; then
-  echo "Bundled worker process failed. stderr:" >&2
-  cat /tmp/stmis-smoke-stderr.log >&2 || true
-  echo "Bundled worker stdout:" >&2
-  cat /tmp/stmis-smoke-result.json >&2 || true
-  exit 1
-fi
-python - <<'PY'
-import json
-with open("/tmp/stmis-smoke-result.json", encoding="utf-8") as stream:
-    result = json.load(stream)
-if result.get("ok") is not True:
-    raise SystemExit("Bundled worker returned an error: " + repr(result))
-if not result.get("blocks"):
-    raise SystemExit("OCR smoke test returned no text blocks: " + repr(result))
-if not any(block.get("translation") for block in result["blocks"]):
-    raise SystemExit("Translation smoke test returned no translation: " + repr(result))
-print("Offline OCR + English-to-Russian translation smoke test passed.")
-PY
-
-echo "Bundled offline runtime prepared:"
-du -sh "$RUNTIME"
- >&2 || true
+  echo "Expected eng.traineddata and rus.traineddata in $TESSDATA" >&2
+  ls -la "$TESSDATA" >&2 || true
   exit 1
 fi
 cp -R "$TESSDATA" "$RUNTIME/share/tessdata"
@@ -121,6 +72,7 @@ print(json.dumps({
     "ocr_language": "eng"
 }))
 PY
+
 if ! "$RUNTIME/stmis-worker/stmis-worker" < /tmp/stmis-smoke-request.json > /tmp/stmis-smoke-result.json 2> /tmp/stmis-smoke-stderr.log; then
   echo "Bundled worker process failed. stderr:" >&2
   cat /tmp/stmis-smoke-stderr.log >&2 || true
@@ -128,6 +80,7 @@ if ! "$RUNTIME/stmis-worker/stmis-worker" < /tmp/stmis-smoke-request.json > /tmp
   cat /tmp/stmis-smoke-result.json >&2 || true
   exit 1
 fi
+
 python - <<'PY'
 import json
 with open("/tmp/stmis-smoke-result.json", encoding="utf-8") as stream:
