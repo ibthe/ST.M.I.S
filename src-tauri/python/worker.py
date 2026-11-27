@@ -32,8 +32,12 @@ def normalize_language(code):
 
 def detect_language(text):
     from langdetect import DetectorFactory, detect
+    from langdetect.lang_detect_exception import LangDetectException
     DetectorFactory.seed = 0
-    return normalize_language(detect(text))
+    try:
+        return normalize_language(detect(text))
+    except LangDetectException:
+        return "unknown"
 
 def recognize_and_translate(request):
     import pytesseract
@@ -64,7 +68,9 @@ def recognize_and_translate(request):
         right = max(int(data["left"][i]) + int(data["width"][i]) for i in indexes)
         bottom = max(int(data["top"][i]) + int(data["height"][i]) for i in indexes)
         error, translated = None, None
-        if source not in available:
+        if source == "unknown":
+            error = "Could not confidently detect the source language for this short text block. Select it manually in Source Language."
+        elif source not in available:
             error = "No offline translation model installed for source language '%s'." % source
         elif target not in available:
             error = "No offline translation model installed for target language '%s'." % target
