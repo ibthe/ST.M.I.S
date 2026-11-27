@@ -1,10 +1,13 @@
+use base64::{engine::general_purpose::STANDARD, Engine as _};
+use image::{DynamicImage, ImageFormat};
 use serde_json::{json, Value};
 use std::{
-    io::Write,
+    io::{Cursor, Write},
     path::PathBuf,
     process::{Command, Stdio},
 };
 use tauri::{AppHandle, Manager};
+use xcap::Monitor;
 
 fn worker_path(app: &AppHandle) -> Result<PathBuf, String> {
     if let Ok(path) = app.path().resolve("python/worker.py", tauri::path::BaseDirectory::Resource) {
@@ -71,7 +74,7 @@ fn recognize_and_translate(
 
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![check_offline_engines, recognize_and_translate])
+        .invoke_handler(tauri::generate_handler![check_offline_engines, recognize_and_translate, capture_overlay_and_translate])
         .run(tauri::generate_context!())
         .expect("error while running ST.M.I.S");
 }
