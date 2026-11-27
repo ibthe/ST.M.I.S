@@ -1,0 +1,1 @@
+This directory is populated with the bundled offline OCR and translation runtime during the macOS Apple Silicon build. The tracked file ensures Tauri resource globs also resolve on Windows builds.
