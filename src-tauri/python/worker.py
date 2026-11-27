@@ -14,7 +14,9 @@ def installed_languages():
 
 def check():
     import pytesseract
-    binary = shutil.which("tesseract")
+    binary = os.environ.get("TESSERACT_CMD") or shutil.which("tesseract")
+    if binary:
+        pytesseract.pytesseract.tesseract_cmd = binary
     try:
         ocr_languages = sorted(pytesseract.get_languages(config="")) if binary else []
     except Exception:
@@ -41,6 +43,7 @@ def detect_language(text):
 
 def recognize_and_translate(request):
     import pytesseract
+    pytesseract.pytesseract.tesseract_cmd = os.environ.get("TESSERACT_CMD") or shutil.which("tesseract") or "tesseract"
     from PIL import Image
     import argostranslate.translate
     if not shutil.which("tesseract"):
