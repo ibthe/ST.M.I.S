@@ -1,33 +1,50 @@
 # ST.M.I.S
 
-**Screen Translation Overlay** — a Windows/macOS desktop overlay that recognizes text in a selected screen area and translates it locally.
+**Screen Translation Overlay** — a transparent Windows/macOS overlay for local screen capture, OCR, and translation.
 
-## Offline design
+## Current architecture
 
 - Desktop shell: Tauri 2 + React + TypeScript + Rust.
-- OCR: Tesseract with bundled local language data.
-- Translation: Argos Translate with local language-pair packages.
-- Language detection: local langdetect model.
-- No hosted OCR or translation API is used by the worker.
+- OCR: PaddleOCR PP-OCRv5 multilingual (Russian/English path), with Tesseract as a fallback.
+- Image preparation: EXIF normalization, selective upscaling, contrast enhancement, and sharpening.
+- Online translation: Gemini API, DeepL API Free, Microsoft Translator F0, and MyMemory.
+- Offline translation: Argos Translate language-pair packages.
+- Language detection: local `langdetect`.
+- API credentials: OS credential vault via Rust keyring integration (Windows Credential Manager / macOS Keychain).
 
-## Apple Silicon build
+## Translation behavior
 
-The macOS ARM64 CI build now prepares a self-contained runtime before bundling the app:
-- a PyInstaller worker with its Python dependencies;
-- Tesseract plus English and Russian OCR data;
-- Argos English-to-Russian and Russian-to-English translation packages;
-- a build-time smoke test that feeds an image through OCR and translation.
+The default **Best available** mode tries configured free-tier providers in this order:
 
-The app locates these resources inside its own bundle. The CI smoke test is the release gate for this packaged path. Intel macOS and Windows currently use the development fallback and are not yet self-contained.
+1. Gemini (context-aware translation).
+2. DeepL API Free.
+3. Microsoft Translator F0 (requires key and region).
+4. MyMemory (no API key).
+5. Argos Translate (local fallback).
 
-## macOS signing
+A provider error, including a quota/rate-limit response, causes the worker to try the next configured provider. Users can select a provider manually or choose Argos offline mode.
 
-The public build uses ad-hoc signing because this project does not have an Apple Developer ID certificate. Ad-hoc signing is not notarization and cannot guarantee that Gatekeeper will allow a quarantined download to open without user approval. A Developer ID certificate and Apple notarization are required for that distribution experience.
+**No paid Google Cloud Translation endpoint is configured.** Free quotas are controlled by each provider and may change. A user-supplied API key does not itself guarantee a free account or free-tier project. In particular, do not attach a billing-enabled Google Cloud project to a Gemini key if you require a strict no-charge setup. Gemini Free may use submitted content to improve Google products; provider privacy terms apply.
 
-## Development fallback
+Only recognized text is sent to online translation providers. Screen images are processed locally and are not uploaded by the translation adapters. Use offline Argos mode to keep text local too.
 
-For local development without the bundled macOS runtime, install Python 3.11+, Tesseract, the packages in `src-tauri/python/requirements.txt`, and the Argos language packages you need. See [docs/OFFLINE_MODELS.md](docs/OFFLINE_MODELS.md).
+## API key setup
 
-## Current limitations
+Open the gear button in the app and add any available credentials:
 
-The bundled Apple Silicon path is being validated in GitHub Actions. The first packaged release targets English/Russian OCR and translation. Other language pairs and Windows self-contained packaging remain future work.
+- Gemini API key from Google AI Studio (Free tier).
+- DeepL API Free key.
+- Microsoft Translator F0 key and its Azure resource region.
+- MyMemory works without a key.
+
+Credentials are saved in the operating system's protected credential store. They are not returned to the frontend or written to the app's ordinary settings files. The app never deliberately switches to a paid provider endpoint, but account-side billing configuration and provider quota policies remain outside the app's control.
+
+## OCR runtime
+
+The build scripts install PaddleOCR and prepare its PP-OCRv5 Russian multilingual model inside the app runtime. PaddleOCR is the preferred backend; Tesseract remains a fallback if PaddleOCR is unavailable or fails. The first bundled build may be substantially larger because the Paddle runtime and model files are included.
+
+## Build and validation
+
+GitHub Actions builds Windows x64 and Apple Silicon macOS packages. CI success verifies compilation and packaging only; a real Windows/macOS launch and accuracy test with representative game screenshots are still required before calling the app production-ready.
+
+macOS builds use ad-hoc signing, not Developer ID signing or notarization. Gatekeeper may require additional user action for downloaded builds.
