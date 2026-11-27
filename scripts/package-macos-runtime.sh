@@ -84,7 +84,8 @@ print(json.dumps({
     "image_base64": base64.b64encode(buffer.getvalue()).decode("ascii"),
     "source_language": "en",
     "target_language": "ru",
-    "ocr_language": "eng+rus"
+    "ocr_language": "eng+rus",
+    "translation_mode": "argos"
 }))
 PY
 
