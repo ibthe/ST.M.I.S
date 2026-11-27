@@ -12,6 +12,7 @@
 - [x] Force Argos MINISBD to avoid first-run remote sentence-splitter downloads
 - [x] Integrate worker into Rust Tauri commands
 - [x] Add UI readiness check for local OCR and translation models
+- [x] Add image-file test path to exercise OCR, source-language detection, translation, and text bounding boxes
 - [ ] Bundle Python/runtime, Tesseract data, and selected Argos packages into installers
 - [ ] Add in-app language-pack manager and offline readiness checks
 
