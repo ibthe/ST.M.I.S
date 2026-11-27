@@ -23,6 +23,13 @@ argospm update
 argospm install translate-en_ru
 argospm install translate-ru_en
 
+# Pre-download Russian/English PP-OCRv5 multilingual models into bundled HOME.
+python - <<'PY'
+from paddleocr import PaddleOCR
+PaddleOCR(lang="ru", ocr_version="PP-OCRv5", use_doc_orientation_classify=False, use_doc_unwarping=False, use_textline_orientation=False, device="cpu")
+print("PP-OCRv5 multilingual models prepared.")
+PY
+
 python -m PyInstaller --noconfirm --clean --onedir \
   --name stmis-worker \
   --collect-all argostranslate \
@@ -31,6 +38,9 @@ python -m PyInstaller --noconfirm --clean --onedir \
   --collect-all langdetect \
   --collect-all PIL \
   --collect-all pytesseract \
+  --collect-all paddleocr \
+  --collect-all paddle \
+  --collect-all paddlex \
   src-tauri/python/worker.py
 mkdir -p "$RUNTIME/stmis-worker"
 cp -R dist/stmis-worker/. "$RUNTIME/stmis-worker/"
