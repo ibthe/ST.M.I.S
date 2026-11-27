@@ -17,18 +17,18 @@
 - [ ] Add in-app language-pack manager and offline readiness checks
 
 ## Screen capture
-- [ ] Capture only the overlay rectangle on Windows
-- [ ] Capture only the overlay rectangle on macOS
-- [ ] Handle screen-recording permissions, DPI, and multi-monitor coordinates
+- [x] Add cross-platform xcap capture of the overlay rectangle on Windows/macOS (initial implementation; awaiting CI and device validation)
+- [ ] Validate macOS Screen Recording permission prompts, DPI scaling, and multi-monitor coordinate mapping on physical devices
 - [ ] Exclude or mask the app's own translation overlay to prevent feedback
 
 ## OCR pipeline
 - [x] Local OCR and translation worker returns text blocks and bounding boxes from a supplied image
-- [ ] Connect native captured frames to the local OCR worker
-- [ ] Add frame-diff detection, debounce, and OCR throttling
+- [x] Connect one-shot native captured frames to the local OCR worker
+- [x] Add opt-in automatic screen scans every 3 seconds (initial polling implementation)
+- [ ] Replace periodic full OCR with frame-diff detection, debounce, and OCR throttling
 
 ## Translation rendering
-- [ ] Position translated blocks over source text
+- [x] Position translated blocks over source text using OCR bounding boxes (initial styling/coordinate implementation)
 - [ ] Add font sizing, contrast, and overflow handling
 - [ ] Add click-through mode with a discoverable interaction shortcut
 
