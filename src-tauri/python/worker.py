@@ -1,104 +1,75 @@
-"""Local-only OCR and translation worker for ST.M.I.S."""
+"""Screen OCR and translation worker for ST.M.I.S."""
 from __future__ import annotations
-import base64, io, json, os, shutil, sys
-from collections import defaultdict
+import base64, importlib.util, io, json, os, shutil, sys
 os.environ["ARGOS_CHUNK_TYPE"] = "MINISBD"
 
 def emit(value):
-    sys.stdout.write(json.dumps(value, ensure_ascii=False))
-    sys.stdout.flush()
+    sys.stdout.write(json.dumps(value, ensure_ascii=False)); sys.stdout.flush()
 
 def installed_languages():
     import argostranslate.translate
-    return [{"code": x.code, "name": x.name} for x in argostranslate.translate.get_installed_languages()]
+    return [{"code":x.code,"name":x.name} for x in argostranslate.translate.get_installed_languages()]
 
 def check():
-    import pytesseract
     binary = os.environ.get("TESSERACT_CMD") or shutil.which("tesseract")
-    if binary:
-        pytesseract.pytesseract.tesseract_cmd = binary
     try:
-        ocr_languages = sorted(pytesseract.get_languages(config="")) if binary else []
+        import pytesseract
+        if binary: pytesseract.pytesseract.tesseract_cmd = binary
+        tess = sorted(pytesseract.get_languages(config="")) if binary else []
     except Exception:
-        ocr_languages = []
+        tess = []
     try:
         translations, error = installed_languages(), None
     except Exception as exc:
         translations, error = [], str(exc)
-    emit({"ok": True, "offline": True, "tesseract_found": bool(binary),
-          "tesseract_path": binary, "ocr_languages": ocr_languages,
-          "translation_languages": translations, "translation_error": error})
+    emit({"ok":True,"offline":True,"tesseract_found":bool(binary),"tesseract_path":binary,
+          "ocr_languages":tess,"paddleocr_available":importlib.util.find_spec("paddleocr") is not None,
+          "translation_languages":translations,"translation_error":error})
 
 def normalize_language(code):
-    return {"zh-cn":"zh", "zh-tw":"zh", "pt-br":"pt"}.get(code.lower(), code.lower())
+    return {"zh-cn":"zh","zh-tw":"zh","pt-br":"pt"}.get(code.lower(),code.lower())
 
 def detect_language(text):
     from langdetect import DetectorFactory, detect
     from langdetect.lang_detect_exception import LangDetectException
-    DetectorFactory.seed = 0
-    try:
-        return normalize_language(detect(text))
-    except LangDetectException:
-        return "unknown"
+    DetectorFactory.seed=0
+    try: return normalize_language(detect(text))
+    except LangDetectException: return "unknown"
 
 def recognize_and_translate(request):
-    import pytesseract
-    pytesseract.pytesseract.tesseract_cmd = os.environ.get("TESSERACT_CMD") or shutil.which("tesseract") or "tesseract"
     from PIL import Image
-    import argostranslate.translate
-    if not shutil.which("tesseract"):
-        raise RuntimeError("Tesseract OCR is not installed. Install it and its language data first.")
-    image = Image.open(io.BytesIO(base64.b64decode(request["image_base64"], validate=True))).convert("RGB")
-    data = pytesseract.image_to_data(image, lang=request.get("ocr_language", "eng"),
-        output_type=pytesseract.Output.DICT, config="--psm 6")
-    lines = defaultdict(list)
-    for i, raw in enumerate(data["text"]):
-        if str(raw).strip() and int(data["conf"][i]) >= 0:
-            key = (int(data["page_num"][i]), int(data["block_num"][i]),
-                   int(data["par_num"][i]), int(data["line_num"][i]))
-            lines[key].append(i)
-    source_requested = request.get("source_language", "auto")
-    target = normalize_language(request["target_language"])
-    available = {x["code"] for x in installed_languages()}
-    results = []
-    for indexes in lines.values():
-        source_text = " ".join(str(data["text"][i]).strip() for i in indexes).strip()
-        if not source_text:
-            continue
-        source = detect_language(source_text) if source_requested == "auto" else normalize_language(source_requested)
-        left = min(int(data["left"][i]) for i in indexes)
-        top = min(int(data["top"][i]) for i in indexes)
-        right = max(int(data["left"][i]) + int(data["width"][i]) for i in indexes)
-        bottom = max(int(data["top"][i]) + int(data["height"][i]) for i in indexes)
-        error, translated = None, None
-        if source == "unknown":
-            error = "Could not confidently detect the source language for this short text block. Select it manually in Source Language."
-        elif source not in available:
-            error = "No offline translation model installed for source language '%s'." % source
-        elif target not in available:
-            error = "No offline translation model installed for target language '%s'." % target
+    from ocr import recognize_with_fallback
+    from translators import translate
+    image = Image.open(io.BytesIO(base64.b64decode(request["image_base64"],validate=True))).convert("RGB")
+    raw_blocks, ocr_engine = recognize_with_fallback(image,request.get("ocr_language","eng+rus"))
+    source_requested=request.get("source_language","auto")
+    target=normalize_language(request["target_language"])
+    credentials=request.get("credentials") or {}
+    mode=request.get("translation_mode","auto")
+    results=[]
+    for block in raw_blocks:
+        source=detect_language(block["text"]) if source_requested=="auto" else normalize_language(source_requested)
+        error, translated, provider = None, None, None
+        if source=="unknown":
+            error="Не удалось определить язык короткого фрагмента. Выберите исходный язык вручную."
+        elif source==target:
+            translated=block["text"]; provider="identity"
         else:
-            try:
-                translated = argostranslate.translate.translate(source_text, source, target)
-            except Exception as exc:
-                error = str(exc)
-        results.append({"text":source_text, "translation":translated, "source_language":source,
-            "error":error, "x":left, "y":top, "width":right-left, "height":bottom-top})
-    emit({"ok":True, "offline":True, "image_width":image.width,
-          "image_height":image.height, "blocks":results})
+            translated,provider,error=translate(block["text"],source,target,mode,credentials)
+        results.append({"text":block["text"],"translation":translated,"source_language":source,
+            "error":error,"provider":provider,"confidence":block.get("confidence",0),
+            "x":block["x"],"y":block["y"],"width":block["width"],"height":block["height"]})
+    emit({"ok":True,"offline":False,"ocr_engine":ocr_engine,"image_width":image.width,
+          "image_height":image.height,"blocks":results})
 
 def main():
-    request = json.load(sys.stdin)
-    if request.get("action") == "check":
-        check()
-    elif request.get("action") == "recognize_and_translate":
-        recognize_and_translate(request)
-    else:
-        raise ValueError("Unknown worker action: %s" % request.get("action"))
+    request=json.load(sys.stdin)
+    if request.get("action")=="check": check()
+    elif request.get("action")=="recognize_and_translate": recognize_and_translate(request)
+    else: raise ValueError("Unknown worker action: "+str(request.get("action")))
 
-if __name__ == "__main__":
-    try:
-        main()
+if __name__=="__main__":
+    try: main()
     except Exception as exc:
-        emit({"ok":False, "offline":True, "error":str(exc)})
+        emit({"ok":False,"offline":True,"error":str(exc)})
         sys.exit(1)
