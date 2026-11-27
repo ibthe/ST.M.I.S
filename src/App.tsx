@@ -44,6 +44,7 @@ export default function App() {
   const [translating, setTranslating] = useState(false);
   const [engineError, setEngineError] = useState("");
   const [blocks, setBlocks] = useState<TranslationBlock[]>([]);
+  const [capturing, setCapturing] = useState(false);
 
   async function checkOfflineSetup() {
     setChecking(true); setEngineError("");
@@ -64,6 +65,17 @@ export default function App() {
       setBlocks(result.blocks);
     } catch (error) { setEngineError(String(error)); }
     finally { setTranslating(false); }
+  }
+
+  async function captureAndTranslate() {
+    setCapturing(true); setEngineError("");
+    try {
+      const result = await invoke<{ blocks: TranslationBlock[] }>("capture_overlay_and_translate", {
+        sourceLanguage: source, targetLanguage: target, ocrLanguage
+      });
+      setBlocks(result.blocks);
+    } catch (error) { setEngineError(String(error)); }
+    finally { setCapturing(false); }
   }
 
   const ready = Boolean(engineStatus?.tesseract_found && engineStatus.translation_languages.some((item) => item.code === target));
@@ -106,6 +118,15 @@ export default function App() {
           {!engineStatus && !engineError && <p className="engine-hint">Check that local Python packages, Tesseract and translation models are installed.</p>}
         </div>
 
+        <div className="capture-action-panel">
+          <div className="card-label">SCREEN TRANSLATION</div>
+          <p>Capture the rectangle behind this window, then recognize and translate it locally.</p>
+          <button className="capture-now-button" onClick={captureAndTranslate} disabled={capturing || paused}>
+            {capturing ? "Capturing and translating…" : "Capture & translate area"}
+          </button>
+          <small>ST.M.I.S briefly hides itself during capture to avoid reading its own interface.</small>
+        </div>
+
         <div className="test-panel">
           <div className="card-label">LOCAL ENGINE TEST</div>
           <p>Test OCR and translation with an image file before live screen capture is connected.</p>
@@ -113,7 +134,7 @@ export default function App() {
           {blocks.map((block, index) => <div className="translation-result" key={index}><small>{block.source_language.toUpperCase()} · {block.text}</small><strong>{block.translation || block.error || "No translation"}</strong></div>)}
         </div>
 
-        <div className="action-row"><button className="primary-button" onClick={() => setPaused(!paused)}>{paused ? "▶ Resume" : "Ⅱ Pause"}</button><span>{paused ? "Translation paused" : "Live translation starts when screen capture is connected"}</span></div>
+        <div className="action-row"><button className="primary-button" onClick={() => setPaused(!paused)}>{paused ? "▶ Resume" : "Ⅱ Pause"}</button><span>{paused ? "Translation paused" : "Manual screen capture is available; continuous mode is next"}</span></div>
       </section>
       <footer>ALL PROCESSING STAYS ON THIS DEVICE <span>NO NETWORK TRANSLATION</span></footer>
     </main>
