@@ -44,6 +44,9 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev patchelf libpipewire-0.3-dev
       - run: npm install
       - run: npm run tauri icon src-tauri/icons/stmis.svg
+      - name: Prepare bundled offline runtime (Apple Silicon)
+        if: runner.os == 'macOS' && runner.arch == 'ARM64'
+        run: bash scripts/package-macos-runtime.sh
       - run: npm run tauri build
       - name: Ad-hoc sign macOS app and rebuild DMG
         if: runner.os == 'macOS'
