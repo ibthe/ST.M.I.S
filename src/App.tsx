@@ -169,7 +169,7 @@ export default function App() {
       <section className="transparent-stage" aria-label="Прозрачная область экрана">
         {settingsOpen && <div className="settings-panel">
           <div className="settings-heading"><strong>ОНЛАЙН-ПЕРЕВОДЧИКИ</strong><button onClick={() => setSettingsOpen(false)} aria-label="Закрыть настройки">×</button></div>
-          <p>Автоматический режим пробует Gemini, DeepL, Microsoft Translator и MyMemory. Ключи хранятся в системном хранилище, а не в файлах приложения.</p>
+          <p>Автоматический режим пробует Gemini, DeepL, Microsoft Translator и MyMemory. В облако отправляется только распознанный текст — изображения остаются на устройстве. Ключи хранятся в системном хранилище, а не в файлах приложения.</p>
           <label>Gemini API key <input type="password" autoComplete="off" value={keyDrafts.gemini || ""} placeholder={providerStatus.gemini ? "Ключ сохранён — введите новый для замены" : "Вставьте бесплатный API-ключ"} onChange={e => setKeyDrafts({...keyDrafts,gemini:e.target.value})} /></label>
           <label>DeepL API Free key <input type="password" autoComplete="off" value={keyDrafts.deepl || ""} placeholder={providerStatus.deepl ? "Ключ сохранён — введите новый для замены" : "Вставьте API Free key"} onChange={e => setKeyDrafts({...keyDrafts,deepl:e.target.value})} /></label>
           <label>Microsoft Translator F0 key <input type="password" autoComplete="off" value={keyDrafts.microsoft || ""} placeholder={providerStatus.microsoft ? "Ключ сохранён — введите новый для замены" : "Ключ F0"} onChange={e => setKeyDrafts({...keyDrafts,microsoft:e.target.value})} /></label>
@@ -214,7 +214,7 @@ export default function App() {
           <button className="text-action" onClick={checkSetup}>ПРОВЕРИТЬ ОФЛАЙН</button>
           <label className="text-action import-action">ТЕСТ ИЗОБРАЖЕНИЯ<input type="file" accept="image/*" onChange={e => testImage(e.target.files?.[0])} /></label>
         </div>
-        {engineStatus && <span className={ready ? "engine-dot ready" : "engine-dot"} title={ready ? "Офлайн-движки готовы" : "Не хватает офлайн-компонентов"} />}
+        {engineStatus && <span className={ready ? "engine-dot ready" : "engine-dot"} title={ready ? "Локальный OCR доступен" : "Не хватает локального OCR"} />}
         <div className="resize-grip" role="button" aria-label="Изменить размер окна" title="Потяните, чтобы изменить размер" onMouseDown={handleResize}><span /><span /><span /></div>
       </footer>
     </main>
