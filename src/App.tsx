@@ -92,6 +92,11 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [live, paused, source, target, ocrLanguage]);
 
+  async function exitApp() {
+    try { await getCurrentWindow().close(); }
+    catch (error) { setEngineError("Не удалось закрыть приложение: " + String(error)); }
+  }
+
   async function handleWindowMouseDown(event: React.MouseEvent<HTMLElement>) {
     const targetElement = event.target as HTMLElement;
     if (targetElement.closest("button, select, input, label, a, [role='button'], .resize-grip")) return;
@@ -132,6 +137,7 @@ export default function App() {
             onClick={() => { if (!live && !ready) { setEngineError("Сначала проверьте наличие локальных OCR и языковых моделей."); return; } setLive(!live); }}>{live ? "●" : "◎"}</button>
           <button className="round-control capture-control" title="Сканировать и перевести" aria-label="Сканировать и перевести"
             disabled={busy || paused || live} onClick={captureAndTranslate}>{busy ? "…" : "↗"}</button>
+          <button className="round-control exit-control" title="Выход из программы" aria-label="Выход из программы" onClick={exitApp}>×</button>
         </div>
         <span className={paused ? "state-indicator paused" : "state-indicator"}><i />{paused ? "ПАУЗА" : live ? "СКАНИРОВАНИЕ" : "ГОТОВО"}</span>
       </header>
