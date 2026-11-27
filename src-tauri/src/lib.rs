@@ -2,9 +2,10 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use image::{DynamicImage, ImageFormat};
 use serde_json::{json, Value};
 use std::{
-    io::{Cursor, Write},
+    io::{BufRead, BufReader, Cursor, Write},
     path::PathBuf,
-    process::{Command, Stdio},
+    process::{Child, ChildStdin, ChildStdout, Command, Stdio},
+    sync::{Mutex, OnceLock},
 };
 use tauri::{AppHandle, Manager};
 use keyring::Entry;
@@ -70,12 +71,19 @@ fn load_provider_credentials() -> Value {
     Value::Object(values)
 }
 
-fn run_local_worker(app: &AppHandle, mut payload: Value) -> Result<Value, String> {
-    if payload.get("action").and_then(Value::as_str) == Some("recognize_and_translate") {
-        if let Some(object) = payload.as_object_mut() {
-            object.insert("credentials".into(), load_provider_credentials());
-        }
-    }
+struct WorkerProcess {
+    child: Child,
+    stdin: ChildStdin,
+    stdout: BufReader<ChildStdout>,
+}
+
+impl Drop for WorkerProcess {
+    fn drop(&mut self) { let _ = self.child.kill(); }
+}
+
+static WORKER_PROCESS: OnceLock<Mutex<Option<WorkerProcess>>> = OnceLock::new();
+
+fn spawn_worker(app: &AppHandle) -> Result<WorkerProcess, String> {
     let script = worker_path(app)?;
     let runtime_home = app.path().resolve("runtime/home", tauri::path::BaseDirectory::Resource).ok();
     let runtime_bin = app.path().resolve("runtime/bin", tauri::path::BaseDirectory::Resource).ok();
@@ -115,22 +123,39 @@ fn run_local_worker(app: &AppHandle, mut payload: Value) -> Result<Value, String
     if let Ok(tessdata) = app.path().resolve("runtime/share/tessdata", tauri::path::BaseDirectory::Resource) {
         command.env("TESSDATA_PREFIX", tessdata);
     }
-    let mut child = command
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|error| format!("Could not start the local Python worker: {error}. Install Python and the packages in src-tauri/python/requirements.txt, or set STMIS_PYTHON."))?;
 
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(payload.to_string().as_bytes())
-            .map_err(|error| format!("Could not send data to the local worker: {error}"))?;
+    let mut child = command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null())
+        .spawn().map_err(|error| format!("Could not start the local OCR/translation worker: {error}"))?;
+    let stdin = child.stdin.take().ok_or("Worker stdin pipe was not created.")?;
+    let stdout = child.stdout.take().ok_or("Worker stdout pipe was not created.")?;
+    Ok(WorkerProcess { child, stdin, stdout: BufReader::new(stdout) })
+}
+
+fn run_local_worker(app: &AppHandle, mut payload: Value) -> Result<Value, String> {
+    if payload.get("action").and_then(Value::as_str) == Some("recognize_and_translate") {
+        if let Some(object) = payload.as_object_mut() {
+            object.insert("credentials".into(), load_provider_credentials());
+        }
     }
-    let output = child.wait_with_output()
-        .map_err(|error| format!("The local worker failed to return a result: {error}"))?;
-    let response: Value = serde_json::from_slice(&output.stdout)
-        .map_err(|_| format!("The local worker returned invalid JSON. {}", String::from_utf8_lossy(&output.stderr)))?;
-    if !output.status.success() || response.get("ok") == Some(&json!(false)) {
+    let process_lock = WORKER_PROCESS.get_or_init(|| Mutex::new(None));
+    let mut slot = process_lock.lock().map_err(|_| "Worker process lock is poisoned.".to_string())?;
+    if slot.as_mut().and_then(|worker| worker.child.try_wait().ok().flatten()).is_some() {
+        *slot = None;
+    }
+    if slot.is_none() { *slot = Some(spawn_worker(app)?); }
+    let worker = slot.as_mut().expect("worker was initialized");
+    writeln!(worker.stdin, "{}", payload).and_then(|_| worker.stdin.flush())
+        .map_err(|error| format!("Could not send request to OCR/translation worker: {error}"))?;
+    let mut line = String::new();
+    let bytes = worker.stdout.read_line(&mut line)
+        .map_err(|error| format!("Could not read worker response: {error}"))?;
+    if bytes == 0 {
+        *slot = None;
+        return Err("OCR/translation worker stopped unexpectedly.".into());
+    }
+    let response: Value = serde_json::from_str(&line)
+        .map_err(|error| format!("Worker returned invalid JSON: {error}"))?;
+    if response.get("ok") == Some(&json!(false)) {
         return Err(response.get("error").and_then(Value::as_str).unwrap_or("Local OCR/translation failed.").to_string());
     }
     Ok(response)
@@ -214,6 +239,13 @@ fn capture_overlay_and_translate(
 
 pub fn run() {
     tauri::Builder::default()
+        .on_window_event(|window, event| {
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
+                if let Some(lock) = WORKER_PROCESS.get() {
+                    if let Ok(mut slot) = lock.lock() { *slot = None; }
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![check_offline_engines, recognize_and_translate, capture_overlay_and_translate, save_provider_credential, delete_provider_credential, provider_credential_status])
         .run(tauri::generate_context!())
         .expect("error while running ST.M.I.S");
