@@ -57,7 +57,10 @@ def translate(text, source, target, mode, credentials):
         "microsoft": lambda: _azure(text,source,target,credentials),
         "mymemory": lambda: _mymemory(text,source,target),
     }
-    order = [mode] if mode in providers else ["gemini","deepl","microsoft","mymemory"]
+    if mode == "argos":
+        order = []
+    else:
+        order = [mode] if mode in providers else ["gemini","deepl","microsoft","mymemory"]
     errors = []
     for name in order:
         if name in ("gemini","deepl") and not credentials.get(name):
