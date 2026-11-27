@@ -9,7 +9,7 @@ def _request(url, payload, headers=None, method="POST"):
         return json.loads(response.read().decode("utf-8"))
 
 def _gemini(text, source, target, key, context=""):
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + urllib.parse.quote(key)
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + urllib.parse.quote(key)
     prompt = ("Translate the selected text from %s to %s. Preserve meaning, names, "
               "game terminology, tone and line breaks. Use the surrounding dialogue only as context. "
               "Return only the translation of the selected text.\n\nContext:\n%s\n\nSelected text:\n%s") % (source, target, context or "(no additional context)", text)
