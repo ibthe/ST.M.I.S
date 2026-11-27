@@ -13,6 +13,8 @@ body{overflow:hidden}
 .round-control:hover{background:#f0f1ed;border-color:#b9c28f}
 .round-control.active{background:#dff28b;border-color:#c6de64}
 .round-control:disabled{opacity:.4;cursor:not-allowed}
+.exit-control{color:#b33b35;border-color:#ead0ce;font-size:18px;line-height:1}
+.exit-control:hover{background:#fce9e7;border-color:#e4aaa5;color:#9f211b}
 .state-indicator{display:flex;align-items:center;gap:6px;color:#6b7078;font-size:8px;font-weight:800;letter-spacing:.08em;white-space:nowrap}
 .state-indicator i{width:6px;height:6px;border-radius:50%;background:#8ebd38;box-shadow:0 0 0 3px #8ebd3824}
 .state-indicator.paused i{background:#d99a38;box-shadow:0 0 0 3px #d99a3824}
