@@ -34,7 +34,8 @@
     "active": true,
     "targets": "all",
     "resources": [
-      "python/worker.py"
+      "python/worker.py",
+      "runtime/**"
     ],
     "category": "Utility",
     "shortDescription": "Fully offline automatic screen translation overlay",
