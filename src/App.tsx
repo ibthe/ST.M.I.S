@@ -120,8 +120,8 @@ export default function App() {
         <div className="capture-card">
           <div className="card-label">CAPTURE AREA</div>
           <h3>Everything under this window</h3>
-          <div className="capture-visual"><div className="scan-line" /><div className="scan-copy"><strong>◎</strong><b>Screen capture integration</b><small>Native Windows and macOS capture is the next milestone</small></div></div>
-          <div className="capture-foot">● SCREEN CAPTURE NOT CONNECTED YET</div>
+          <div className="capture-visual"><div className="scan-line" /><div className="scan-copy"><strong>◎</strong><b>Screen capture integration</b><small>Native Windows and macOS capture is available</small></div></div>
+          <div className="capture-foot">● NATIVE CAPTURE READY</div>
         </div>
 
         <div className="controls">
@@ -150,18 +150,18 @@ export default function App() {
           <button className="capture-now-button" onClick={captureAndTranslate} disabled={capturing || paused || live}>
             {capturing ? "Capturing and translating…" : "Capture & translate area"}
           </button>
-          <button className="live-mode-button" onClick={() => setLive(!live)} disabled={paused}>{live ? "Stop automatic translation" : "Start automatic translation"}</button>
+          <button className="live-mode-button" onClick={() => { if (!live && !ready) { setEngineError("Check offline setup and install the selected OCR and translation models before starting automatic translation."); return; } setLive(!live); }} disabled={paused}>{live ? "Stop automatic translation" : "Start automatic translation"}</button>
           <small>{live ? "Automatic screen scan every 3 seconds. The overlay briefly hides during each scan." : "ST.M.I.S briefly hides itself during capture to avoid reading its own interface."}</small>
         </div>
 
         <div className="test-panel">
           <div className="card-label">LOCAL ENGINE TEST</div>
-          <p>Test OCR and translation with an image file before live screen capture is connected.</p>
+          <p>Test OCR and translation with a local image, or capture the screen area directly.</p>
           <label className="file-button">{translating ? "Processing locally…" : "Choose image to test"}<input type="file" accept="image/*" disabled={translating} onChange={(event) => testImage(event.target.files?.[0])}/></label>
           {blocks.map((block, index) => <div className="translation-result" key={index}><small>{block.source_language.toUpperCase()} · {block.text}</small><strong>{block.translation || block.error || "No translation"}</strong></div>)}
         </div>
 
-        <div className="action-row"><button className="primary-button" onClick={() => setPaused(!paused)}>{paused ? "▶ Resume" : "Ⅱ Pause"}</button><span>{paused ? "Translation paused" : "Manual screen capture is available; continuous mode is next"}</span></div>
+        <div className="action-row"><button className="primary-button" onClick={() => setPaused(!paused)}>{paused ? "▶ Resume" : "Ⅱ Pause"}</button><span>{paused ? "Translation paused" : "Manual and automatic screen capture are available"}</span></div>
       </section>
       <footer>ALL PROCESSING STAYS ON THIS DEVICE <span>NO NETWORK TRANSLATION</span></footer>
     </main>
