@@ -27,7 +27,8 @@ argospm install translate-ru_en
 python - <<'PY'
 from paddleocr import PaddleOCR
 PaddleOCR(lang="ru", ocr_version="PP-OCRv5", use_doc_orientation_classify=False, use_doc_unwarping=False, use_textline_orientation=False, device="cpu")
-print("PP-OCRv5 multilingual models prepared.")
+PaddleOCR(lang="en", ocr_version="PP-OCRv5", use_doc_orientation_classify=False, use_doc_unwarping=False, use_textline_orientation=False, device="cpu")
+print("PP-OCRv5 Russian and English models prepared.")
 PY
 
 python -m PyInstaller --noconfirm --clean --onedir \
@@ -83,7 +84,7 @@ print(json.dumps({
     "image_base64": base64.b64encode(buffer.getvalue()).decode("ascii"),
     "source_language": "en",
     "target_language": "ru",
-    "ocr_language": "eng"
+    "ocr_language": "eng+rus"
 }))
 PY
 
@@ -101,6 +102,8 @@ with open("/tmp/stmis-smoke-result.json", encoding="utf-8") as stream:
     result = json.load(stream)
 if result.get("ok") is not True:
     raise SystemExit("Bundled worker returned an error: " + repr(result))
+if result.get("ocr_engine") != "paddleocr":
+    raise SystemExit("PaddleOCR was not used by the packaged worker: " + repr(result.get("ocr_engine")))
 if not result.get("blocks"):
     raise SystemExit("OCR smoke test returned no text blocks: " + repr(result))
 if not any(block.get("translation") for block in result["blocks"]):
