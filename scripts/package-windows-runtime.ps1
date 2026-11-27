@@ -65,5 +65,33 @@ if not {"en", "ru"}.issubset(codes):
 print("Offline English/Russian translation models verified.")
 '@ | & $Python -
 if ($LASTEXITCODE -ne 0) { throw "Offline model validation failed." }
+
+# End-to-end test: require the packaged PaddleOCR model and offline Argos translation.
+@'
+import base64, io, json
+from PIL import Image, ImageDraw, ImageFont
+image = Image.new("RGB", (1400, 300), "white")
+draw = ImageDraw.Draw(image)
+draw.text((60, 70), "Hello world", fill="black", font=ImageFont.load_default(size=100))
+buffer = io.BytesIO()
+image.save(buffer, format="PNG")
+print(json.dumps({"action":"recognize_and_translate",
+    "image_base64":base64.b64encode(buffer.getvalue()).decode("ascii"),
+    "source_language":"en","target_language":"ru","ocr_language":"eng+rus",
+    "translation_mode":"argos"}))
+'@ | & $Python - > (Join-Path $Runtime "smoke-request.json")
+if ($LASTEXITCODE -ne 0) { throw "Could not prepare OCR smoke test." }
+& (Join-Path $Runtime "stmis-worker/stmis-worker.exe") < (Join-Path $Runtime "smoke-request.json") > (Join-Path $Runtime "smoke-result.json")
+if ($LASTEXITCODE -ne 0) { throw "Bundled OCR/translation worker smoke test failed." }
+@'
+import json, sys
+result = json.load(open(sys.argv[1], encoding="utf-8"))
+if result.get("ok") is not True: raise SystemExit("Worker returned error: " + repr(result))
+if result.get("ocr_engine") != "paddleocr": raise SystemExit("PaddleOCR was not used: " + repr(result.get("ocr_engine")))
+if not any(x.get("translation") for x in result.get("blocks", [])): raise SystemExit("Offline translation returned no text.")
+print("Bundled PaddleOCR + Argos offline smoke test passed.")
+'@ | & $Python - (Join-Path $Runtime "smoke-result.json")
+if ($LASTEXITCODE -ne 0) { throw "Bundled PaddleOCR/Argos smoke test failed." }
+
 Write-Host "Windows offline runtime prepared:"
 (Get-ChildItem $Runtime -Recurse -File | Measure-Object -Property Length -Sum).Sum / 1GB
