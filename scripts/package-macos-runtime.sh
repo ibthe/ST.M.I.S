@@ -58,7 +58,7 @@ import base64, io, json
 from PIL import Image, ImageDraw, ImageFont
 image = Image.new("RGB", (1400, 300), "white")
 draw = ImageDraw.Draw(image)
-font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 110)
+font = ImageFont.load_default(size=100)
 draw.text((60, 70), "Hello world", fill="black", font=font)
 buffer = io.BytesIO()
 image.save(buffer, format="PNG")
