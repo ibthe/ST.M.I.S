@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 type EngineStatus = {
@@ -46,6 +46,8 @@ export default function App() {
   const [blocks, setBlocks] = useState<TranslationBlock[]>([]);
   const [capturing, setCapturing] = useState(false);
   const [captureSize, setCaptureSize] = useState<{width:number;height:number} | null>(null);
+  const [live, setLive] = useState(false);
+  const captureBusy = useRef(false);
 
   async function checkOfflineSetup() {
     setChecking(true); setEngineError("");
@@ -79,6 +81,16 @@ export default function App() {
     } catch (error) { setEngineError(String(error)); }
     finally { setCapturing(false); }
   }
+
+  useEffect(() => {
+    if (!live || paused) return;
+    const timer = window.setInterval(() => {
+      if (captureBusy.current) return;
+      captureBusy.current = true;
+      captureAndTranslate().finally(() => { captureBusy.current = false; });
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [live, paused, source, target, ocrLanguage]);
 
   const ready = Boolean(engineStatus?.tesseract_found && engineStatus.translation_languages.some((item) => item.code === target));
 
@@ -135,10 +147,11 @@ export default function App() {
         <div className="capture-action-panel">
           <div className="card-label">SCREEN TRANSLATION</div>
           <p>Capture the rectangle behind this window, then recognize and translate it locally.</p>
-          <button className="capture-now-button" onClick={captureAndTranslate} disabled={capturing || paused}>
+          <button className="capture-now-button" onClick={captureAndTranslate} disabled={capturing || paused || live}>
             {capturing ? "Capturing and translating…" : "Capture & translate area"}
           </button>
-          <small>ST.M.I.S briefly hides itself during capture to avoid reading its own interface.</small>
+          <button className="live-mode-button" onClick={() => setLive(!live)} disabled={paused}>{live ? "Stop automatic translation" : "Start automatic translation"}</button>
+          <small>{live ? "Automatic screen scan every 3 seconds. The overlay briefly hides during each scan." : "ST.M.I.S briefly hides itself during capture to avoid reading its own interface."}</small>
         </div>
 
         <div className="test-panel">
