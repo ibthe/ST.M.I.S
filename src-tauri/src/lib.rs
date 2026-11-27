@@ -95,13 +95,15 @@ fn recognize_and_translate(
     source_language: String,
     target_language: String,
     ocr_language: String,
+    translation_mode: String,
 ) -> Result<Value, String> {
     run_local_worker(&app, json!({
         "action": "recognize_and_translate",
         "image_base64": image_base64,
         "source_language": source_language,
         "target_language": target_language,
-        "ocr_language": ocr_language
+        "ocr_language": ocr_language,
+        "translation_mode": translation_mode
     }))
 }
 
@@ -112,6 +114,7 @@ fn capture_overlay_and_translate(
     source_language: String,
     target_language: String,
     ocr_language: String,
+    translation_mode: String,
 ) -> Result<Value, String> {
     let window = app.get_webview_window("main")
         .ok_or_else(|| "Main overlay window was not found.".to_string())?;
@@ -151,7 +154,8 @@ fn capture_overlay_and_translate(
         "image_base64": image_base64,
         "source_language": source_language,
         "target_language": target_language,
-        "ocr_language": ocr_language
+        "ocr_language": ocr_language,
+        "translation_mode": translation_mode
     }))
 }
 
