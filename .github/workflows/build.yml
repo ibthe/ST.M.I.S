@@ -69,10 +69,21 @@ jobs:
           DMG_PATH="$DMG_DIR/ST.M.I.S_0.1.0_aarch64.dmg"
           rm -f "$DMG_PATH"
           hdiutil create -volname "ST.M.I.S" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_PATH"
-      - name: Upload desktop installers
+      - name: Upload macOS DMG
+        if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
-          name: ST-M-I-S-${{ runner.os }}-${{ runner.arch }}
+          name: ST-M-I-S-macOS-${{ runner.arch }}
           path: src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload Windows installers
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ST-M-I-S-Windows-${{ runner.arch }}
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*-setup.exe
           if-no-files-found: error
           retention-days: 14
