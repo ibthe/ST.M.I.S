@@ -24,12 +24,36 @@ fn worker_path(app: &AppHandle) -> Result<PathBuf, String> {
 
 fn run_local_worker(app: &AppHandle, payload: Value) -> Result<Value, String> {
     let script = worker_path(app)?;
-    let python = std::env::var("STMIS_PYTHON").unwrap_or_else(|_| {
-        if cfg!(target_os = "windows") { "python".into() } else { "python3".into() }
-    });
-    let mut child = Command::new(python)
-        .arg(script)
-        .env("ARGOS_CHUNK_TYPE", "MINISBD")
+    let runtime_home = app.path().resolve("runtime/home", tauri::path::BaseDirectory::Resource).ok();
+    let runtime_bin = app.path().resolve("runtime/bin", tauri::path::BaseDirectory::Resource).ok();
+    let runtime_lib = app.path().resolve("runtime/lib", tauri::path::BaseDirectory::Resource).ok();
+    let bundled_worker = app.path().resolve(
+        if cfg!(target_os = "macos") { "runtime/stmis-worker/stmis-worker" } else { "runtime/stmis-worker/stmis-worker.exe" },
+        tauri::path::BaseDirectory::Resource
+    ).ok().filter(|path| path.exists());
+
+    let mut command = if let Some(executable) = bundled_worker {
+        Command::new(executable)
+    } else {
+        let python = std::env::var("STMIS_PYTHON").unwrap_or_else(|_| {
+            if cfg!(target_os = "windows") { "python".into() } else { "python3".into() }
+        });
+        let mut fallback = Command::new(python);
+        fallback.arg(script);
+        fallback
+    };
+    command.env("ARGOS_CHUNK_TYPE", "MINISBD");
+    if let Some(home) = runtime_home { command.env("HOME", home); }
+    if let Some(bin) = runtime_bin {
+        let existing = std::env::var("PATH").unwrap_or_default();
+        command.env("PATH", format!("{}:{}", bin.display(), existing));
+        command.env("TESSERACT_CMD", bin.join("tesseract"));
+    }
+    if let Some(lib) = runtime_lib { command.env("DYLD_LIBRARY_PATH", lib); }
+    if let Ok(tessdata) = app.path().resolve("runtime/share/tessdata", tauri::path::BaseDirectory::Resource) {
+        command.env("TESSDATA_PREFIX", tessdata);
+    }
+    let mut child = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
