@@ -1,36 +1,23 @@
 # ST.M.I.S
 
-**Screen Translation Overlay** — a cross-platform desktop overlay that continuously detects and translates text visible beneath its transparent window.
+**Screen Translation Overlay** — a Windows and macOS desktop overlay designed to recognize and translate all readable text beneath a transparent, always-on-top window.
 
-## Product definition
+## Product promise
 
-The app stays above other windows. The user moves and resizes its transparent capture area over any desktop content. ST.M.I.S captures only the area beneath that overlay, detects text with OCR, translates it, and renders translated text in a floating overlay aligned with the source text.
+**Fully offline at runtime.** Screenshots, recognized text, and translations stay on the user's computer. No hosted OCR or translation API is used.
 
-## MVP principles
+## Local technology
 
-- Windows and macOS support.
-- Always-on-top, movable and resizable overlay.
-- Capture the screen region covered by the overlay (with explicit OS screen-recording permission).
-- OCR the full captured region, not only selected text.
-- Automatic refresh when the underlying image changes, with throttling/debouncing.
-- Translation provider abstraction; no API key is committed.
-- Display translated text as positioned labels/blocks. Preserve the original by default; source-cover/replacement mode is a later opt-in feature because accurate background reconstruction is not generally possible.
-- Pause/resume, target language, source language auto-detection, and clear status/errors.
+- Desktop: Tauri 2 + React + TypeScript + Rust.
+- OCR: Tesseract with local language data.
+- Translation: Argos Translate with locally installed language-pair packages.
+- Language detection: local langdetect model.
+- Worker: Python subprocess at src-tauri/python/worker.py.
 
-## Important platform constraint
+Language models must be prepared before going offline. Translation packages are directional: install each direction you need. The worker forces Argos MINISBD to avoid optional first-run remote sentence-boundary downloads.
 
-A window cannot reliably capture the pixels behind itself on every OS/compositor. The implementation must use native screen-capture APIs and OS permissions, and must avoid capturing its own rendered translation overlay (capture exclusion or frame masking where supported). This is a core technical spike, not an assumption.
+## Current implementation status
 
-## Planned architecture
+The repository includes the desktop shell, a Python local OCR/translation worker, Rust commands that invoke the worker, and a UI panel for checking local engines. Native screen capture, automatic live polling, positioned translation rendering, installer bundling, and Windows/macOS runtime validation are still in progress. The development bridge currently expects Python, Tesseract, Tesseract language data, Argos packages, and Python dependencies installed locally.
 
-- **Desktop shell:** Tauri 2 + React + TypeScript.
-- **Native integration:** Rust/Tauri commands and platform-specific capture/window modules.
-- **OCR:** provider interface; initial local OCR integration selected after platform spike.
-- **Translation:** provider interface with configurable remote or local backend.
-- **Rendering:** transparent overlay window with click-through mode when not interacting with controls.
-
-## Development status
-
-Repository initialized. Implementation has not yet been validated on Windows or macOS; both platforms require native runtime testing.
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [CONTRIBUTING.md](CONTRIBUTING.md).
+See docs/OFFLINE_MODELS.md, docs/ARCHITECTURE.md, and docs/ROADMAP.md.
