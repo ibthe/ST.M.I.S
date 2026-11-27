@@ -1,46 +1,46 @@
-# Fully offline OCR and translation
+# OCR and offline translation
 
-ST.M.I.S performs OCR and machine translation locally. It must not send screenshots, recognized text, or translations to a network service.
+ST.M.I.S separates screen recognition from translation. OCR is performed locally. Translation can use free-tier online providers or the local Argos engine.
 
-## Local engines
+## Local OCR
 
-- OCR: Tesseract with local tessdata language files.
-- Translation: Argos Translate language-pair packages.
-- Language detection: langdetect, using its packaged local model.
-- Bridge: src-tauri/python/worker.py, invoked by Rust Tauri commands.
+- Preferred: PaddleOCR PP-OCRv5 multilingual, configured for Russian/English.
+- Fallback: Tesseract with local `eng` and `rus` tessdata.
+- Preprocessing: image normalization, upscaling for small captures, contrast enhancement, and sharpening.
+- The worker returns text, confidence, and bounding boxes so translations can be overlaid near the source text.
 
-Argos Translate is an open-source local translation engine. Model packages are installed per direction; English-to-Russian does not automatically install Russian-to-English. Argos can pivot through intermediate languages when the required direct pair is unavailable, with a possible quality trade-off.
+The bundled Windows and Apple Silicon scripts install PaddleOCR/PaddlePaddle, initialize the Russian multilingual model cache, and package the Python worker. Tesseract is retained as a fallback. More OCR languages can be enabled after their PaddleOCR model caches are included in the build.
 
-## Prepare a development machine (one-time, while online)
+## Online translation
 
-1. Install Python 3.11 or newer.
-2. Install Tesseract OCR and the eng and rus OCR language data (add other OCR languages as needed).
-3. Install worker dependencies:
+The default mode tries configured providers in this order: Gemini, DeepL API Free, Microsoft Translator F0, then MyMemory. If all online options fail or are not configured, Argos Translate is attempted locally. A user may select a provider manually or choose Argos directly.
 
-   python -m pip install -r src-tauri/python/requirements.txt
+- Gemini Free: free quota varies by model/account; content may be used to improve Google products.
+- DeepL API Free: currently documents a 500,000-character monthly free limit.
+- Microsoft Translator F0: currently documents 2 million free characters per month; requires a key and region.
+- MyMemory: free API with usage restrictions and daily limits.
+- No Google Cloud Translation API is enabled because its credit/overage model cannot guarantee no charges.
 
-4. Install Argos model packages for the language directions you need. Example:
+Provider limits and terms can change. An API key is not proof that an account is configured for a free tier. The app uses the free DeepL endpoint and Microsoft Translator endpoint; it does not intentionally fall back to a paid endpoint. Users must ensure the Google AI Studio key is associated with a Free-tier project without billing enabled if zero charges are required.
 
-   argospm update
-   argospm install translate-en_ru
-   argospm install translate-ru_en
+Only recognized text is sent to online providers. Screenshots stay local. Use Argos mode to keep both screenshots and text on the device.
 
-5. Prepare and verify Argos offline sentence splitting. The worker forces ARGOS_CHUNK_TYPE=MINISBD to avoid optional first-run SBD downloads. Run a representative test translation before disconnecting.
-6. Launch ST.M.I.S and use Check setup to verify Tesseract and installed Argos language packs.
-7. Disconnect the network and test again. Runtime translation must still work.
+## Credentials
 
-The package index and model downloads are setup-time operations only. The ST.M.I.S runtime worker does not update indexes, fetch packages, or call remote APIs.
+Tauri stores Gemini, DeepL, Microsoft key, and Microsoft region in the OS credential vault through the Rust keyring crate. The frontend only receives booleans indicating whether a credential exists. Secret values are passed from the Rust backend to the local worker through its standard-input request and are not persisted in normal app files.
 
-## Runtime dependencies and packaging status
+## Argos offline translation
 
-The Apple Silicon macOS CI pipeline now builds a self-contained runtime before Tauri bundling: PyInstaller worker + Python dependencies, Tesseract, English/Russian tessdata, and Argos en→ru / ru→en packages. A build-time smoke test sends a generated image through the packaged worker and requires a non-empty translation. Rust launches this packaged worker and points it at the bundled OCR data and Argos home directory.
+Argos language packages are installed per direction. English-to-Russian does not automatically install Russian-to-English. Example:
 
-This path is still pending a successful CI run and a real clean-Mac install test. Windows and Intel macOS still require a separately installed Python/Tesseract/Argos environment. The app is not notarized because the project does not have an Apple Developer ID certificate.
+```bash
+argospm update
+argospm install translate-en_ru
+argospm install translate-ru_en
+```
 
-## Language selection
+The bundled scripts prepare en→ru and ru→en packages and force `ARGOS_CHUNK_TYPE=MINISBD` to avoid optional first-run sentence-boundary downloads.
 
-Source language can be auto-detected locally or explicitly selected. OCR language and translation source language are separate settings: OCR language controls which character sets Tesseract recognizes; source language controls the translation model route. The initial UI exposes source and target language selection; OCR language is currently set to English in the worker call contract and will be exposed in settings.
+## Validation status
 
-## Privacy guarantee
-
-The worker accepts image bytes over standard input and returns OCR/translation JSON over standard output. It does not write screenshots to disk, record recognized text, or access a remote translation service.
+CI builds are required to validate the bundled PaddleOCR runtime and Tauri keychain integration. CI success alone does not establish recognition quality or successful first launch on a user's computer. Representative screenshots and real clean-machine tests are still needed.
