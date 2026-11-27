@@ -2,3 +2,5 @@ argostranslate==1.11.0
 pytesseract==0.3.13
 Pillow==11.1.0
 langdetect==1.0.9
+paddlepaddle==3.2.0
+paddleocr==3.2.0
