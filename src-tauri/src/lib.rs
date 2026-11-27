@@ -6,7 +6,7 @@ use std::{
     path::PathBuf,
     process::{Command, Stdio},
 };
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager};\nuse keyring::Entry;
 use xcap::Monitor;
 
 fn worker_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -157,7 +157,7 @@ fn capture_overlay_and_translate(
 
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![check_offline_engines, recognize_and_translate, capture_overlay_and_translate])
+        .invoke_handler(tauri::generate_handler![check_offline_engines, recognize_and_translate, capture_overlay_and_translate, save_provider_credential, delete_provider_credential, provider_credential_status])
         .run(tauri::generate_context!())
         .expect("error while running ST.M.I.S");
 }
