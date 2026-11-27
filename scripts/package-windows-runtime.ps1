@@ -34,7 +34,8 @@ $env:ARGOS_CHUNK_TYPE = "MINISBD"
 @'
 from paddleocr import PaddleOCR
 PaddleOCR(lang="ru", ocr_version="PP-OCRv5", use_doc_orientation_classify=False, use_doc_unwarping=False, use_textline_orientation=False, device="cpu")
-print("PP-OCRv5 multilingual models prepared.")
+PaddleOCR(lang="en", ocr_version="PP-OCRv5", use_doc_orientation_classify=False, use_doc_unwarping=False, use_textline_orientation=False, device="cpu")
+print("PP-OCRv5 Russian and English models prepared.")
 '@ | & $Python -
 if ($LASTEXITCODE -ne 0) { throw "PaddleOCR model preparation failed." }
 & (Join-Path $Venv "Scripts/argospm.exe") update
