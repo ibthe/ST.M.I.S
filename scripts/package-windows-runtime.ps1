@@ -44,7 +44,7 @@ $ArgosCandidates = @(
 )
 $ArgosSource = $ArgosCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (!$ArgosSource) { throw "Argos Translate package directory was not found; refusing to create an incomplete offline runtime." }
-Copy-Item $ArgosSource (Join-Path $HomeDir "argos-translate") -Recurse -Force
+Copy-Item $ArgosSource (Join-Path $env:LOCALAPPDATA "argos-translate") -Recurse -Force
 
 $env:PATH = "$(Join-Path $Runtime 'bin');$env:PATH"
 $env:TESSERACT_CMD = Join-Path $Runtime "bin/tesseract.exe"
