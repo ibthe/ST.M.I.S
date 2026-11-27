@@ -6,7 +6,7 @@ concurrency:
 
 on:
   push:
-    branches: [main]
+    branches: [main, fix/transparent-overlay-layout]
   pull_request:
     branches: [main]
 
@@ -37,11 +37,15 @@ jobs:
         with:
           node-version: 20
       - uses: dtolnay/rust-toolchain@stable
-      - name: Set up Python for bundled macOS worker
-        if: runner.os == 'macOS'
+      - name: Set up Python for bundled offline worker
+        if: runner.os == 'macOS' || runner.os == 'Windows'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Prepare bundled offline runtime (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/package-windows-runtime.ps1
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: |
@@ -69,10 +73,21 @@ jobs:
           DMG_PATH="$DMG_DIR/ST.M.I.S_0.1.0_aarch64.dmg"
           rm -f "$DMG_PATH"
           hdiutil create -volname "ST.M.I.S" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_PATH"
-      - name: Upload desktop installers
+      - name: Upload macOS DMG
+        if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
-          name: ST-M-I-S-${{ runner.os }}-${{ runner.arch }}
-          path: src-tauri/target/release/bundle/
+          name: ST-M-I-S-macOS-${{ runner.arch }}
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload Windows installers
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ST-M-I-S-Windows-${{ runner.arch }}
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*-setup.exe
           if-no-files-found: error
           retention-days: 14
