@@ -7,7 +7,7 @@ ST.M.I.S performs OCR and machine translation locally. It must not send screensh
 - OCR: Tesseract with local tessdata language files.
 - Translation: Argos Translate language-pair packages.
 - Language detection: langdetect, using its packaged local model.
-- Bridge: src-tauri/python/worker.py, called as a local subprocess by Rust.
+- Bridge: src-tauri/python/worker.py, invoked by Rust Tauri commands.
 
 Argos Translate is an open-source local translation engine. Model packages are installed per direction; English-to-Russian does not automatically install Russian-to-English. Argos can pivot through intermediate languages when the required direct pair is unavailable, with a possible quality trade-off.
 
@@ -26,7 +26,7 @@ Argos Translate is an open-source local translation engine. Model packages are i
    argospm install translate-ru_en
 
 5. Prepare and verify Argos offline sentence splitting. The worker forces ARGOS_CHUNK_TYPE=MINISBD to avoid optional first-run SBD downloads. Run a representative test translation before disconnecting.
-6. Verify Tesseract and the expected language packs are present.
+6. Launch ST.M.I.S and use Check setup to verify Tesseract and installed Argos language packs.
 7. Disconnect the network and test again. Runtime translation must still work.
 
 The package index and model downloads are setup-time operations only. The ST.M.I.S runtime worker does not update indexes, fetch packages, or call remote APIs.
@@ -37,7 +37,7 @@ The current development bridge expects a local Python interpreter, Python packag
 
 ## Language selection
 
-Source language can be auto-detected locally or explicitly selected. OCR language and translation source language are separate settings: OCR language controls which character sets Tesseract recognizes; source language controls the translation model route.
+Source language can be auto-detected locally or explicitly selected. OCR language and translation source language are separate settings: OCR language controls which character sets Tesseract recognizes; source language controls the translation model route. The initial UI exposes source and target language selection; OCR language is currently set to English in the worker call contract and will be exposed in settings.
 
 ## Privacy guarantee
 
