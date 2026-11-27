@@ -46,16 +46,20 @@ def recognize_and_translate(request):
     target=normalize_language(request["target_language"])
     credentials=request.get("credentials") or {}
     mode=request.get("translation_mode","auto")
+    combined_text="\n".join(block["text"] for block in raw_blocks)
+    detected_source=detect_language(combined_text) if source_requested=="auto" else normalize_language(source_requested)
     results=[]
-    for block in raw_blocks:
-        source=detect_language(block["text"]) if source_requested=="auto" else normalize_language(source_requested)
+    for index, block in enumerate(raw_blocks):
+        source=detected_source
+        nearby=raw_blocks[max(0,index-2):min(len(raw_blocks),index+3)]
+        context="\n".join(item["text"] for item in nearby if item is not block)
         error, translated, provider = None, None, None
         if source=="unknown":
             error="Не удалось определить язык короткого фрагмента. Выберите исходный язык вручную."
         elif source==target:
             translated=block["text"]; provider="identity"
         else:
-            translated,provider,error=translate(block["text"],source,target,mode,credentials)
+            translated,provider,error=translate(block["text"],source,target,mode,credentials,context)
         results.append({"text":block["text"],"translation":translated,"source_language":source,
             "error":error,"provider":provider,"confidence":block.get("confidence",0),
             "x":block["x"],"y":block["y"],"width":block["width"],"height":block["height"]})
