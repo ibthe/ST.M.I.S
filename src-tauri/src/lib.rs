@@ -72,6 +72,54 @@ fn recognize_and_translate(
     }))
 }
 
+
+#[tauri::command]
+fn capture_overlay_and_translate(
+    app: AppHandle,
+    source_language: String,
+    target_language: String,
+    ocr_language: String,
+) -> Result<Value, String> {
+    let window = app.get_webview_window("main")
+        .ok_or_else(|| "Main overlay window was not found.".to_string())?;
+    let position = window.outer_position().map_err(|e| e.to_string())?;
+    let size = window.outer_size().map_err(|e| e.to_string())?;
+
+    window.hide().map_err(|e| format!("Could not hide overlay before capture: {e}"))?;
+    std::thread::sleep(std::time::Duration::from_millis(180));
+
+    let capture_result = (|| -> Result<String, String> {
+        let center_x = position.x + (size.width / 2) as i32;
+        let center_y = position.y + (size.height / 2) as i32;
+        let monitor = Monitor::from_point(center_x, center_y)
+            .map_err(|e| format!("Could not identify display for overlay: {e}"))?;
+        let monitor_x = monitor.x().map_err(|e| e.to_string())?;
+        let monitor_y = monitor.y().map_err(|e| e.to_string())?;
+        let scale = monitor.scale_factor().map_err(|e| e.to_string())?;
+        let x = ((position.x - monitor_x) as f32 * scale).round().max(0.0) as u32;
+        let y = ((position.y - monitor_y) as f32 * scale).round().max(0.0) as u32;
+        let width = (size.width as f32 * scale).round() as u32;
+        let height = (size.height as f32 * scale).round() as u32;
+        let image = monitor.capture_region(x, y, width, height)
+            .map_err(|e| format!("Screen capture failed. Check OS screen-recording permissions: {e}"))?;
+        let mut png = Cursor::new(Vec::new());
+        DynamicImage::ImageRgba8(image).write_to(&mut png, ImageFormat::Png)
+            .map_err(|e| format!("Could not encode captured screen area: {e}"))?;
+        Ok(STANDARD.encode(png.into_inner()))
+    })();
+
+    let restore_result = window.show().map_err(|e| format!("Captured screen, but could not restore overlay: {e}"));
+    let image_base64 = capture_result?;
+    restore_result?;
+    run_local_worker(&app, json!({
+        "action": "recognize_and_translate",
+        "image_base64": image_base64,
+        "source_language": source_language,
+        "target_language": target_language,
+        "ocr_language": ocr_language
+    }))
+}
+
 pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![check_offline_engines, recognize_and_translate, capture_overlay_and_translate])
