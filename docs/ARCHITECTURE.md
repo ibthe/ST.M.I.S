@@ -1,16 +1,42 @@
 # Architecture
 
-1. Tauri overlay shell: transparent, undecorated, always-on-top window.
-2. Native capture adapter: captures the physical screen rectangle corresponding to the overlay, requests OS permission, and avoids capturing the app's own translation layer.
-3. Change detector: schedules OCR only when pixels change.
-4. OCR adapter: returns text, confidence, and bounding boxes in screen coordinates.
-5. Translation adapter: batches strings, caches repeats, and returns translations.
-6. Overlay renderer: draws translated labels at OCR bounding boxes.
+## Runtime layers
 
-Normalize capture coordinates into physical display pixels and account for DPI scaling and multi-monitor origins.
+1. **Desktop shell (Tauri 2):** transparent, always-on-top desktop window. The current UI is a control panel prototype; the final product will separate controls from the transparent capture/translation surface.
+2. **Native capture adapter (Rust):** captures the physical screen rectangle corresponding to the overlay. It must request OS permission and exclude the application's own overlay to prevent feedback.
+3. **Change detector:** compares sampled frames and schedules OCR only when the underlying screen changes.
+4. **Local OCR worker:** Tesseract returns text, confidence, and bounding boxes in captured-image coordinates.
+5. **Local language detection:** langdetect identifies the source language without a network request.
+6. **Local translation:** Argos Translate uses installed language-pair packages. Runtime uses MINISBD and must not update package indexes or download models.
+7. **Overlay renderer:** positions translated labels over the corresponding source text.
 
-Capturing pixels beneath a transparent always-on-top window is OS/compositor-dependent. macOS requires Screen Recording permission. Windows should use Windows Graphics Capture. Both require native testing and self-capture prevention.
+## Current implementation
 
-Privacy defaults: capture only the overlay rectangle; do not save screenshots or log text; keep credentials out of source control; provide a visible pause control.
+- Tauri commands invoke a local Python worker through stdin/stdout JSON.
+- The worker supports an engine-readiness check and image-to-OCR-to-translation processing.
+- The UI can check local engine installation and test the OCR/translation pipeline using a local image file.
+- The capture adapter and automatic polling/rendering are not yet connected.
 
-Current implementation: Tauri shell and React control surface only. Capture, OCR, translation, and positioned rendering are not implemented.
+## Coordinate system
+
+Native capture results should be normalized into physical display pixels. OCR boxes are relative to the captured image. The renderer converts them to overlay logical coordinates, accounting for DPI scaling, display scaling, and multi-monitor origins.
+
+## Capture feedback and permission
+
+Capturing the screen beneath a transparent always-on-top window is OS/compositor-dependent. Windows and macOS implementations must be tested separately. macOS requires Screen Recording permission. The capture adapter must exclude or mask the app's own rendered translation pixels to avoid recursive OCR.
+
+## Offline model provisioning
+
+Python dependencies, Tesseract executable and language data, and Argos language packages are development prerequisites at present. Release installers must bundle these components or provide an explicit one-time model installer. No setup/download operation may run during offline translation.
+
+## Privacy
+
+- Capture only the rectangle covered by the overlay.
+- Do not save screenshots by default.
+- Do not log recognized text or translations.
+- Do not send images or text to remote services.
+- Provide a visible pause state and capture indicator.
+
+## Known product limitation
+
+The initial renderer preserves source text and places translated text in aligned overlay blocks. Pixel-perfect erasure/replacement is not assumed because arbitrary application backgrounds, images, gradients, and anti-aliased glyphs cannot reliably be reconstructed.
