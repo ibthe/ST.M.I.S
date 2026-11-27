@@ -45,6 +45,7 @@ export default function App() {
   const [engineError, setEngineError] = useState("");
   const [blocks, setBlocks] = useState<TranslationBlock[]>([]);
   const [capturing, setCapturing] = useState(false);
+  const [captureSize, setCaptureSize] = useState<{width:number;height:number} | null>(null);
 
   async function checkOfflineSetup() {
     setChecking(true); setEngineError("");
@@ -70,10 +71,11 @@ export default function App() {
   async function captureAndTranslate() {
     setCapturing(true); setEngineError("");
     try {
-      const result = await invoke<{ blocks: TranslationBlock[] }>("capture_overlay_and_translate", {
+      const result = await invoke<{ blocks: TranslationBlock[]; image_width:number; image_height:number }>("capture_overlay_and_translate", {
         sourceLanguage: source, targetLanguage: target, ocrLanguage
       });
       setBlocks(result.blocks);
+      setCaptureSize({width: result.image_width, height: result.image_height});
     } catch (error) { setEngineError(String(error)); }
     finally { setCapturing(false); }
   }
@@ -82,6 +84,18 @@ export default function App() {
 
   return (
     <main className="shell">
+      {captureSize && blocks.length > 0 && (
+        <div className="translated-overlay" aria-label="Translated screen text">
+          {blocks.filter((block) => block.translation).map((block, index) => (
+            <div className="translated-label" key={index} style={{
+              left: (block.x / captureSize.width * 100) + "%",
+              top: (block.y / captureSize.height * 100) + "%",
+              width: Math.max(8, block.width / captureSize.width * 100) + "%",
+              minHeight: Math.max(2, block.height / captureSize.height * 100) + "%"
+            }}>{block.translation}</div>
+          ))}
+        </div>
+      )}
       <header className="titlebar" data-tauri-drag-region>
         <div className="brand" data-tauri-drag-region><b className="brand-mark">S</b> ST.M.I.S <small>PREVIEW 0.3</small></div>
         <span className="status">{paused ? "PAUSED" : "OFFLINE MODE"}</span>
