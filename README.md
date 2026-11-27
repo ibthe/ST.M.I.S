@@ -1,23 +1,33 @@
 # ST.M.I.S
 
-**Screen Translation Overlay** — a Windows and macOS desktop overlay designed to recognize and translate all readable text beneath a transparent, always-on-top window.
+**Screen Translation Overlay** — a Windows/macOS desktop overlay that recognizes text in a selected screen area and translates it locally.
 
-## Product promise
+## Offline design
 
-**Fully offline at runtime.** Screenshots, recognized text, and translations stay on the user's computer. No hosted OCR or translation API is used.
-
-## Local technology
-
-- Desktop: Tauri 2 + React + TypeScript + Rust.
-- OCR: Tesseract with local language data.
-- Translation: Argos Translate with locally installed language-pair packages.
+- Desktop shell: Tauri 2 + React + TypeScript + Rust.
+- OCR: Tesseract with bundled local language data.
+- Translation: Argos Translate with local language-pair packages.
 - Language detection: local langdetect model.
-- Worker: Python subprocess at src-tauri/python/worker.py.
+- No hosted OCR or translation API is used by the worker.
 
-Language models must be prepared before going offline. Translation packages are directional: install each direction you need. The worker forces Argos MINISBD to avoid optional first-run remote sentence-boundary downloads.
+## Apple Silicon build
 
-## Current implementation status
+The macOS ARM64 CI build now prepares a self-contained runtime before bundling the app:
+- a PyInstaller worker with its Python dependencies;
+- Tesseract plus English and Russian OCR data;
+- Argos English-to-Russian and Russian-to-English translation packages;
+- a build-time smoke test that feeds an image through OCR and translation.
 
-The repository includes the desktop shell, a Python local OCR/translation worker, Rust commands that invoke the worker, and a UI panel for checking local engines. Native screen capture, automatic live polling, positioned translation rendering, installer bundling, and Windows/macOS runtime validation are still in progress. The development bridge currently expects Python, Tesseract, Tesseract language data, Argos packages, and Python dependencies installed locally.
+The app locates these resources inside its own bundle. The CI smoke test is the release gate for this packaged path. Intel macOS and Windows currently use the development fallback and are not yet self-contained.
 
-See docs/OFFLINE_MODELS.md, docs/ARCHITECTURE.md, and docs/ROADMAP.md.
+## macOS signing
+
+The public build uses ad-hoc signing because this project does not have an Apple Developer ID certificate. Ad-hoc signing is not notarization and cannot guarantee that Gatekeeper will allow a quarantined download to open without user approval. A Developer ID certificate and Apple notarization are required for that distribution experience.
+
+## Development fallback
+
+For local development without the bundled macOS runtime, install Python 3.11+, Tesseract, the packages in `src-tauri/python/requirements.txt`, and the Argos language packages you need. See [docs/OFFLINE_MODELS.md](docs/OFFLINE_MODELS.md).
+
+## Current limitations
+
+The bundled Apple Silicon path is being validated in GitHub Actions. The first packaged release targets English/Russian OCR and translation. Other language pairs and Windows self-contained packaging remain future work.
