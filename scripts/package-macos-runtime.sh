@@ -47,7 +47,39 @@ test -d "$TESSDATA"
 cp -R "$TESSDATA" "$RUNTIME/share/tessdata"
 
 # Keep only the OCR languages needed by the initial UI to reduce installer size.
-find "$RUNTIME/share/tessdata" -maxdepth 1 -type f ! -name 'eng.traineddata' ! -name 'rus.traineddata' -delete
+find "$RUNTIME/share/tessdata" -maxdepth 1 -type f ! -name 'eng.traineddata' ! -name 'rus.traineddata' ! -name 'osd.traineddata' -delete
+
+# Build-time end-to-end test: bundled OCR + bundled English-to-Russian model.
+export PATH="$RUNTIME/bin:$PATH"
+export TESSERACT_CMD="$RUNTIME/bin/tesseract"
+export TESSDATA_PREFIX="$RUNTIME/share/tessdata"
+python - <<'PY' > /tmp/stmis-smoke-request.json
+import base64, io, json
+from PIL import Image, ImageDraw, ImageFont
+image = Image.new("RGB", (1400, 300), "white")
+draw = ImageDraw.Draw(image)
+font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 110)
+draw.text((60, 70), "Hello world", fill="black", font=font)
+buffer = io.BytesIO()
+image.save(buffer, format="PNG")
+print(json.dumps({
+    "action": "recognize_and_translate",
+    "image_base64": base64.b64encode(buffer.getvalue()).decode("ascii"),
+    "source_language": "en",
+    "target_language": "ru",
+    "ocr_language": "eng"
+}))
+PY
+"$RUNTIME/stmis-worker/stmis-worker" < /tmp/stmis-smoke-request.json > /tmp/stmis-smoke-result.json
+python - <<'PY'
+import json
+with open("/tmp/stmis-smoke-result.json", encoding="utf-8") as stream:
+    result = json.load(stream)
+assert result.get("ok") is True, result
+assert result.get("blocks"), result
+assert any(block.get("translation") for block in result["blocks"]), result
+print("Offline OCR + English-to-Russian translation smoke test passed.")
+PY
 
 echo "Bundled offline runtime prepared:"
 du -sh "$RUNTIME"
