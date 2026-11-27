@@ -30,10 +30,17 @@ $Python = Join-Path $Venv "Scripts/python.exe"
 & $Python -m pip install --upgrade pip
 & $Python -m pip install -r src-tauri/python/requirements.txt pyinstaller
 $env:ARGOS_CHUNK_TYPE = "MINISBD"
+# Pre-download Russian/English PP-OCRv5 multilingual models into bundled HOME.
+@'
+from paddleocr import PaddleOCR
+PaddleOCR(lang="ru", ocr_version="PP-OCRv5", use_doc_orientation_classify=False, use_doc_unwarping=False, use_textline_orientation=False, device="cpu")
+print("PP-OCRv5 multilingual models prepared.")
+'@ | & $Python -
+if ($LASTEXITCODE -ne 0) { throw "PaddleOCR model preparation failed." }
 & (Join-Path $Venv "Scripts/argospm.exe") update
 & (Join-Path $Venv "Scripts/argospm.exe") install translate-en_ru
 & (Join-Path $Venv "Scripts/argospm.exe") install translate-ru_en
-& $Python -m PyInstaller --noconfirm --clean --onedir --name stmis-worker --collect-all argostranslate --collect-all ctranslate2 --collect-all sentencepiece --collect-all langdetect --collect-all PIL --collect-all pytesseract src-tauri/python/worker.py
+& $Python -m PyInstaller --noconfirm --clean --onedir --name stmis-worker --collect-all argostranslate --collect-all ctranslate2 --collect-all sentencepiece --collect-all langdetect --collect-all PIL --collect-all pytesseract --collect-all paddleocr --collect-all paddle --collect-all paddlex src-tauri/python/worker.py
 Copy-Item (Join-Path $Root "dist/stmis-worker/*") (Join-Path $Runtime "stmis-worker") -Recurse -Force
 
 # Keep Argos data in the app resources. Fail the build if package data is missing.
