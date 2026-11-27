@@ -67,13 +67,20 @@ def recognize_and_translate(request):
           "image_height":image.height,"blocks":results})
 
 def main():
-    request=json.load(sys.stdin)
-    if request.get("action")=="check": check()
-    elif request.get("action")=="recognize_and_translate": recognize_and_translate(request)
-    else: raise ValueError("Unknown worker action: "+str(request.get("action")))
+    # Stay alive so PaddleOCR models remain loaded across repeated screen scans.
+    for line in sys.stdin:
+        if not line.strip():
+            continue
+        try:
+            request=json.loads(line)
+            if request.get("action")=="check":
+                check()
+            elif request.get("action")=="recognize_and_translate":
+                recognize_and_translate(request)
+            else:
+                emit({"ok":False,"error":"Unknown worker action: "+str(request.get("action"))})
+        except Exception as exc:
+            emit({"ok":False,"offline":True,"error":str(exc)})
 
 if __name__=="__main__":
-    try: main()
-    except Exception as exc:
-        emit({"ok":False,"offline":True,"error":str(exc)})
-        sys.exit(1)
+    main()
