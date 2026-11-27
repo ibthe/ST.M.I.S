@@ -6,7 +6,8 @@ use std::{
     path::PathBuf,
     process::{Command, Stdio},
 };
-use tauri::{AppHandle, Manager};\nuse keyring::Entry;
+use tauri::{AppHandle, Manager};
+use keyring::Entry;
 use xcap::Monitor;
 
 fn worker_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -22,7 +23,59 @@ fn worker_path(app: &AppHandle) -> Result<PathBuf, String> {
     Err("The local OCR/translation worker was not found in the application resources.".into())
 }
 
-fn run_local_worker(app: &AppHandle, payload: Value) -> Result<Value, String> {
+const KEYRING_SERVICE: &str = "com.ibthe.stmis";
+
+fn credential_entry(provider: &str) -> Result<Entry, String> {
+    match provider {
+        "gemini" | "deepl" | "microsoft" | "microsoft_region" => {},
+        _ => return Err("Unknown translation provider.".into()),
+    }
+    Entry::new(KEYRING_SERVICE, provider).map_err(|e| format!("Could not access OS credential vault: {e}"))
+}
+
+#[tauri::command]
+fn save_provider_credential(provider: String, value: String) -> Result<(), String> {
+    if value.trim().is_empty() { return Err("Значение не может быть пустым.".into()); }
+    credential_entry(&provider)?.set_password(value.trim()).map_err(|e| format!("Не удалось сохранить ключ в системном хранилище: {e}"))
+}
+
+#[tauri::command]
+fn delete_provider_credential(provider: String) -> Result<(), String> {
+    match credential_entry(&provider)?.delete_credential() {
+        Ok(()) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(format!("Не удалось удалить ключ из системного хранилища: {e}")),
+    }
+}
+
+#[tauri::command]
+fn provider_credential_status() -> Result<Value, String> {
+    let mut status = serde_json::Map::new();
+    for provider in ["gemini", "deepl", "microsoft", "microsoft_region"] {
+        let present = credential_entry(provider).ok().and_then(|entry| entry.get_password().ok()).is_some();
+        status.insert(provider.to_string(), json!(present));
+    }
+    Ok(Value::Object(status))
+}
+
+fn load_provider_credentials() -> Value {
+    let mut values = serde_json::Map::new();
+    for provider in ["gemini", "deepl", "microsoft", "microsoft_region"] {
+        if let Ok(entry) = credential_entry(provider) {
+            if let Ok(value) = entry.get_password() {
+                values.insert(provider.to_string(), json!(value));
+            }
+        }
+    }
+    Value::Object(values)
+}
+
+fn run_local_worker(app: &AppHandle, mut payload: Value) -> Result<Value, String> {
+    if payload.get("action").and_then(Value::as_str) == Some("recognize_and_translate") {
+        if let Some(object) = payload.as_object_mut() {
+            object.insert("credentials".into(), load_provider_credentials());
+        }
+    }
     let script = worker_path(app)?;
     let runtime_home = app.path().resolve("runtime/home", tauri::path::BaseDirectory::Resource).ok();
     let runtime_bin = app.path().resolve("runtime/bin", tauri::path::BaseDirectory::Resource).ok();
