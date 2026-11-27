@@ -81,7 +81,7 @@ print(json.dumps({"action":"recognize_and_translate",
     "translation_mode":"argos"}))
 '@ | & $Python - > (Join-Path $Runtime "smoke-request.json")
 if ($LASTEXITCODE -ne 0) { throw "Could not prepare OCR smoke test." }
-& (Join-Path $Runtime "stmis-worker/stmis-worker.exe") < (Join-Path $Runtime "smoke-request.json") > (Join-Path $Runtime "smoke-result.json")
+Get-Content -Raw (Join-Path $Runtime "smoke-request.json") | & (Join-Path $Runtime "stmis-worker/stmis-worker.exe") > (Join-Path $Runtime "smoke-result.json")
 if ($LASTEXITCODE -ne 0) { throw "Bundled OCR/translation worker smoke test failed." }
 @'
 import json, sys
