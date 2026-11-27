@@ -68,8 +68,8 @@ export default function App() {
       setEngineStatus(status);
       const hasTarget = status.translation_languages.some(item => item.code === target);
       if (!status.paddleocr_available && !status.tesseract_found) setEngineError("Не найден PaddleOCR или Tesseract. Проверьте комплект локального OCR.");
-      else if (!hasTarget) setEngineError("Не найдена офлайн-модель перевода для выбранного языка. Установите языковую модель в комплект приложения.");
-      else setEngineError("Локальное распознавание готово. Переводчик: " + translationMode + ".");
+      else if (!hasTarget) setEngineError("OCR готов. Для офлайн-перевода нет модели выбранного языка; онлайн-перевод доступен при подключённом сервисе.");
+      else setEngineError("Локальное распознавание и офлайн-резерв готовы. Переводчик: " + translationMode + ".");
     } catch (error) {
       setEngineStatus(null);
       setEngineError("Не удалось запустить локальный движок: " + String(error));
@@ -103,8 +103,7 @@ export default function App() {
     } catch (error) { setEngineError("Ошибка тестирования изображения: " + String(error)); }
     finally { setBusy(false); }
   }
-  const ready = Boolean((engineStatus?.paddleocr_available || engineStatus?.tesseract_found) &&
-    engineStatus.translation_languages.some(item => item.code === target));
+  const ready = Boolean(engineStatus?.paddleocr_available || engineStatus?.tesseract_found);
   useEffect(() => { void refreshProviderStatus(); }, []);
   useEffect(() => {
     if (!live || paused) return;
