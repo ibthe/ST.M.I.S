@@ -113,7 +113,7 @@ export default function App() {
       captureAndTranslate().finally(() => { captureBusy.current = false; });
     }, 3000);
     return () => window.clearInterval(timer);
-  }, [live, paused, source, target, ocrLanguage]);
+  }, [live, paused, source, target, ocrLanguage, translationMode]);
 
   async function exitApp() {
     try { await getCurrentWindow().close(); }
@@ -122,7 +122,7 @@ export default function App() {
 
   async function handleWindowMouseDown(event: React.MouseEvent<HTMLElement>) {
     const targetElement = event.target as HTMLElement;
-    if (targetElement.closest("button, select, input, label, a, [role='button'], .resize-grip")) return;
+    if (targetElement.closest("button, select, input, label, a, [role='button'], .resize-grip, .settings-panel")) return;
     try { await getCurrentWindow().startDragging(); }
     catch (error) { setEngineError("Не удалось переместить окно: " + String(error)); }
   }
