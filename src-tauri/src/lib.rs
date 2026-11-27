@@ -95,11 +95,12 @@ fn capture_overlay_and_translate(
             .map_err(|e| format!("Could not identify display for overlay: {e}"))?;
         let monitor_x = monitor.x().map_err(|e| e.to_string())?;
         let monitor_y = monitor.y().map_err(|e| e.to_string())?;
-        let scale = monitor.scale_factor().map_err(|e| e.to_string())?;
-        let x = ((position.x - monitor_x) as f32 * scale).round().max(0.0) as u32;
-        let y = ((position.y - monitor_y) as f32 * scale).round().max(0.0) as u32;
-        let width = (size.width as f32 * scale).round() as u32;
-        let height = (size.height as f32 * scale).round() as u32;
+        // Tauri outer_position/outer_size are already physical pixels; XCap capture_region
+        // also expects monitor-relative physical pixels. Do not apply the DPI scale twice.
+        let x = (position.x - monitor_x).max(0) as u32;
+        let y = (position.y - monitor_y).max(0) as u32;
+        let width = size.width;
+        let height = size.height;
         let image = monitor.capture_region(x, y, width, height)
             .map_err(|e| format!("Screen capture failed. Check OS screen-recording permissions: {e}"))?;
         let mut png = Cursor::new(Vec::new());
@@ -108,9 +109,10 @@ fn capture_overlay_and_translate(
         Ok(STANDARD.encode(png.into_inner()))
     })();
 
-    let restore_result = window.show().map_err(|e| format!("Captured screen, but could not restore overlay: {e}"));
-    let image_base64 = capture_result?;
+    let restore_result = window.show().map_err(|e| format!("Could not restore overlay after capture: {e}"));
+    // Always restore the overlay, even when the capture itself fails.
     restore_result?;
+    let image_base64 = capture_result?;
     run_local_worker(&app, json!({
         "action": "recognize_and_translate",
         "image_base64": image_base64,
