@@ -39,14 +39,18 @@ TESSERACT_BIN="$(command -v tesseract)"
 cp "$TESSERACT_BIN" "$RUNTIME/bin/tesseract"
 dylibbundler -od -b -x "$RUNTIME/bin/tesseract" -d "$RUNTIME/lib" -p '@executable_path/../lib'
 
-# tesseract-lang installs its data files under its own formula prefix.
-TESSDATA="$(brew --prefix tesseract-lang)/share/tessdata"
-if [[ ! -f "$TESSDATA/eng.traineddata" || ! -f "$TESSDATA/rus.traineddata" ]]; then
-  echo "Expected eng.traineddata and rus.traineddata in $TESSDATA" >&2
-  ls -la "$TESSDATA" >&2 || true
+# tesseract-lang excludes eng/osd because those are supplied by the core formula.
+TESSDATA_LANG="$(brew --prefix tesseract-lang)/share/tessdata"
+TESSDATA_CORE="$(brew --prefix tesseract)/share/tessdata"
+mkdir -p "$RUNTIME/share/tessdata"
+cp -R "$TESSDATA_LANG/." "$RUNTIME/share/tessdata/"
+cp "$TESSDATA_CORE/eng.traineddata" "$RUNTIME/share/tessdata/eng.traineddata"
+cp "$TESSDATA_CORE/osd.traineddata" "$RUNTIME/share/tessdata/osd.traineddata"
+if [[ ! -f "$RUNTIME/share/tessdata/eng.traineddata" || ! -f "$RUNTIME/share/tessdata/rus.traineddata" ]]; then
+  echo "Could not assemble English and Russian Tesseract data files." >&2
+  ls -la "$RUNTIME/share/tessdata" >&2 || true
   exit 1
 fi
-cp -R "$TESSDATA" "$RUNTIME/share/tessdata"
 
 # Keep only the OCR languages needed by the initial UI to reduce installer size.
 find "$RUNTIME/share/tessdata" -maxdepth 1 -type f ! -name 'eng.traineddata' ! -name 'rus.traineddata' ! -name 'osd.traineddata' -delete
