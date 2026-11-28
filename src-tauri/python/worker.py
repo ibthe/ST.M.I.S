@@ -2,9 +2,19 @@
 from __future__ import annotations
 import base64, importlib.util, io, json, os, shutil, sys
 os.environ["ARGOS_CHUNK_TYPE"] = "MINISBD"
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError):
+        pass
+
+_PROTOCOL_STDOUT = sys.stdout
 
 def emit(value):
-    sys.stdout.write(json.dumps(value, ensure_ascii=False)); sys.stdout.flush()
+    # Keep stdout exclusively for the line-delimited JSON protocol. Paddle/PaddleX
+    # diagnostic output is redirected to stderr while each request is processed.
+    _PROTOCOL_STDOUT.write(json.dumps(value, ensure_ascii=False) + "\\n")
+    _PROTOCOL_STDOUT.flush()
 
 def installed_languages():
     import argostranslate.translate
@@ -73,6 +83,9 @@ def main():
             continue
         try:
             request=json.loads(line)
+            # PaddleOCR/PaddleX emit diagnostic text to stdout. Keep that output
+            # away from Rust's JSON response channel.
+            sys.stdout = sys.stderr
             if request.get("action")=="check":
                 check()
             elif request.get("action")=="recognize_and_translate":
@@ -81,6 +94,8 @@ def main():
                 emit({"ok":False,"error":"Unknown worker action: "+str(request.get("action"))})
         except Exception as exc:
             emit({"ok":False,"offline":True,"error":str(exc)})
+        finally:
+            sys.stdout = _PROTOCOL_STDOUT
 
 if __name__=="__main__":
     main()
