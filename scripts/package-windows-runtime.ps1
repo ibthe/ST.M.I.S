@@ -43,7 +43,7 @@ if ($LASTEXITCODE -ne 0) { throw "PaddleOCR model preparation failed." }
 & (Join-Path $Venv "Scripts/argospm.exe") update
 & (Join-Path $Venv "Scripts/argospm.exe") install translate-en_ru
 & (Join-Path $Venv "Scripts/argospm.exe") install translate-ru_en
-& $Python -m PyInstaller --noconfirm --clean --onedir --name stmis-worker --collect-all argostranslate --collect-all ctranslate2 --collect-all sentencepiece --collect-all langdetect --collect-all PIL --collect-all pytesseract --collect-all paddleocr --collect-all paddle --collect-all paddlex src-tauri/python/worker.py
+& $Python -m PyInstaller --noconfirm --clean --onedir --name stmis-worker --collect-all argostranslate --collect-all ctranslate2 --collect-all sentencepiece --collect-all langdetect --collect-all PIL --collect-all pytesseract --collect-all paddleocr --collect-all paddle --collect-all paddlex --collect-data paddlex --copy-metadata paddleocr --copy-metadata paddlex --copy-metadata paddlepaddle --copy-metadata imagesize --copy-metadata opencv-contrib-python --copy-metadata pyclipper --copy-metadata pypdfium2 --copy-metadata shapely --copy-metadata jinja2 --copy-metadata regex --hidden-import scipy._cyutility src-tauri/python/worker.py
 Copy-Item (Join-Path $Root "dist/stmis-worker/*") (Join-Path $Runtime "stmis-worker") -Recurse -Force
 
 # Keep Argos data in the app resources. Fail the build if package data is missing.
