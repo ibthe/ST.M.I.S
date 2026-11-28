@@ -30,6 +30,8 @@ $Python = Join-Path $Venv "Scripts/python.exe"
 & $Python -m pip install --upgrade pip
 & $Python -m pip install -r src-tauri/python/requirements.txt pyinstaller
 $env:ARGOS_CHUNK_TYPE = "MINISBD"
+$env:PYTHONUTF8 = "1"
+$env:PYTHONIOENCODING = "utf-8"
 # Pre-download Russian/English PP-OCRv5 multilingual models into bundled HOME.
 @'
 from paddleocr import PaddleOCR
@@ -81,6 +83,7 @@ print(json.dumps({"action":"recognize_and_translate",
     "translation_mode":"argos"}))
 '@ | & $Python - > (Join-Path $Runtime "smoke-request.json")
 if ($LASTEXITCODE -ne 0) { throw "Could not prepare OCR smoke test." }
+$env:STMIS_REQUIRE_PADDLEOCR = "1"
 Get-Content -Raw (Join-Path $Runtime "smoke-request.json") | & (Join-Path $Runtime "stmis-worker/stmis-worker.exe") > (Join-Path $Runtime "smoke-result.json")
 if ($LASTEXITCODE -ne 0) { throw "Bundled OCR/translation worker smoke test failed." }
 @'
