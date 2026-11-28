@@ -104,6 +104,8 @@ fn spawn_worker(app: &AppHandle) -> Result<WorkerProcess, String> {
         fallback
     };
     command.env("ARGOS_CHUNK_TYPE", "MINISBD");
+    command.env("PYTHONUTF8", "1");
+    command.env("PYTHONIOENCODING", "utf-8");
     if let Some(home) = runtime_home {
         command.env("HOME", &home);
         if cfg!(target_os = "windows") {
