@@ -16,13 +16,13 @@
 
 The default **Best available** mode tries configured free-tier providers in this order:
 
-1. Gemini (context-aware translation).
-2. DeepL API Free.
-3. Microsoft Translator F0 (requires key and region).
-4. MyMemory (no API key).
+1. Gemini 3.8 Flash (context-aware translation; Free tier).
+2. Microsoft Translator F0 (requires a free F0 resource, key, and region).
+3. DeepL API Free (existing keys only; new subscriptions are no longer offered).
+4. MyMemory (no API key, subject to usage limits).
 5. Argos Translate (local fallback).
 
-A provider error, including a quota/rate-limit response, causes the worker to try the next configured provider. Users can select a provider manually or choose Argos offline mode.
+A provider error, including a quota/rate-limit response, causes the worker to try the next configured provider. The app does not automatically change a free F0 subscription into a paid tier. Users can select a provider manually or choose Argos offline mode.
 
 **No paid Google Cloud Translation endpoint is configured.** Free quotas are controlled by each provider and may change. A user-supplied API key does not itself guarantee a free account or free-tier project. In particular, do not attach a billing-enabled Google Cloud project to a Gemini key if you require a strict no-charge setup. Gemini Free may use submitted content to improve Google products; provider privacy terms apply.
 
@@ -33,8 +33,8 @@ Only recognized text is sent to online translation providers. Screen images are 
 Open the gear button in the app and add any available credentials:
 
 - Gemini API key from Google AI Studio (Free tier).
-- DeepL API Free key.
 - Microsoft Translator F0 key and its Azure resource region.
+- DeepL API Free key, only if you already have an active key (new sign-ups are no longer available).
 - MyMemory works without a key.
 
 Credentials are saved in the operating system's protected credential store. They are not returned to the frontend or written to the app's ordinary settings files. The app never deliberately switches to a paid provider endpoint, but account-side billing configuration and provider quota policies remain outside the app's control.
