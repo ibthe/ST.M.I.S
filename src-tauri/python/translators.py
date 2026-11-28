@@ -61,7 +61,7 @@ def translate(text, source, target, mode, credentials, context=""):
     if mode == "argos":
         order = []
     else:
-        order = [mode] if mode in providers else ["gemini","deepl","microsoft","mymemory"]
+        order = [mode] if mode in providers else ["gemini","microsoft","deepl","mymemory"]
     errors = []
     for name in order:
         if name in ("gemini","deepl") and not credentials.get(name):
