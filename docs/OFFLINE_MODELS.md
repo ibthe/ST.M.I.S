@@ -13,11 +13,11 @@ The bundled Windows and Apple Silicon scripts install PaddleOCR/PaddlePaddle, in
 
 ## Online translation
 
-The default mode tries configured providers in this order: Gemini, DeepL API Free, Microsoft Translator F0, then MyMemory. If all online options fail or are not configured, Argos Translate is attempted locally. A user may select a provider manually or choose Argos directly.
+The default mode tries configured providers in this order: Gemini, Microsoft Translator F0, DeepL API Free (existing keys only), then MyMemory. If all online options fail or are not configured, Argos Translate is attempted locally. A user may select a provider manually or choose Argos directly.
 
-- Gemini Free: free quota varies by model/account; content may be used to improve Google products.
-- DeepL API Free: currently documents a 500,000-character monthly free limit.
-- Microsoft Translator F0: currently documents 2 million free characters per month; requires a key and region.
+- Gemini Free: free quota and model availability vary by account; content may be used to improve Google products.
+- DeepL API Free: 500,000 characters/month for existing accounts; new sign-ups are no longer available.
+- Microsoft Translator F0: 2 million free characters per subscription month; requires an Azure Translator F0 resource, key, and region. The service stops at the quota instead of silently switching to a paid tier.
 - MyMemory: free API with usage restrictions and daily limits.
 - No Google Cloud Translation API is enabled because its credit/overage model cannot guarantee no charges.
 
