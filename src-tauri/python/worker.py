@@ -13,7 +13,7 @@ _PROTOCOL_STDOUT = sys.stdout
 def emit(value):
     # Keep stdout exclusively for the line-delimited JSON protocol. Paddle/PaddleX
     # diagnostic output is redirected to stderr while each request is processed.
-    _PROTOCOL_STDOUT.write(json.dumps(value, ensure_ascii=False) + "\\n")
+    _PROTOCOL_STDOUT.write(json.dumps(value, ensure_ascii=False) + "\n")
     _PROTOCOL_STDOUT.flush()
 
 def installed_languages():
