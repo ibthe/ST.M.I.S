@@ -82,15 +82,19 @@ def recognize_with_fallback(image, language: str):
     try:
         blocks = recognize(image, language)
         return blocks, "paddleocr"
-    except (ImportError, ModuleNotFoundError):
+    except (ImportError, ModuleNotFoundError) as exc:
+        if os.environ.get("STMIS_REQUIRE_PADDLEOCR") == "1":
+            raise RuntimeError("Packaged PaddleOCR dependency is missing: %s" % exc) from exc
         return recognize_tesseract(image, language), "tesseract"
     except Exception as exc:
-        # A failed Paddle runtime should not silently hide a working fallback.
+        # CI smoke tests must fail loudly rather than silently passing via fallback.
+        if os.environ.get("STMIS_REQUIRE_PADDLEOCR") == "1":
+            raise RuntimeError("Packaged PaddleOCR inference failed: %s" % exc) from exc
         try:
             blocks = recognize_tesseract(image, language)
             return blocks, "tesseract"
-        except Exception:
-            raise RuntimeError("PaddleOCR failed (%s); Tesseract fallback failed too." % exc) from exc
+        except Exception as fallback_exc:
+            raise RuntimeError("PaddleOCR failed (%s); Tesseract fallback failed (%s)." % (exc, fallback_exc)) from exc
 
 def recognize_tesseract(image, language: str):
     import pytesseract
