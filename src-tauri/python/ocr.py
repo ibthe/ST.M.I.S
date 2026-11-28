@@ -1,6 +1,8 @@
 """OCR backends for ST.M.I.S. PaddleOCR is preferred; Tesseract remains fallback."""
 from __future__ import annotations
 import os
+import platform
+import sys
 from typing import Any
 
 _PADDLE = None
@@ -14,6 +16,9 @@ def _paddle_instance(language: str):
     lang = "ru" if language in ("eng+rus", "rus", "ru") else {
         "eng":"en", "deu":"de", "jpn":"japan", "chi_sim":"ch"
     }.get(language, "ru")
+    # PaddlePaddle can segfault on Apple Silicon with its oneDNN path.
+    # Keep the optimized default everywhere else.
+    enable_mkldnn = not (sys.platform == "darwin" and platform.machine().lower() in ("arm64", "aarch64"))
     _PADDLE = PaddleOCR(
         lang=lang,
         ocr_version="PP-OCRv5",
@@ -21,7 +26,7 @@ def _paddle_instance(language: str):
         use_doc_unwarping=False,
         use_textline_orientation=False,
         device="cpu",
-        enable_mkldnn=False,
+        enable_mkldnn=enable_mkldnn,
     )
     return _PADDLE
 
