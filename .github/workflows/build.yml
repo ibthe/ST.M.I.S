@@ -56,7 +56,12 @@ jobs:
       - name: Prepare bundled offline runtime (Apple Silicon)
         if: runner.os == 'macOS' && runner.arch == 'ARM64'
         run: bash scripts/package-macos-runtime.sh
-      - run: npm run tauri build
+      - name: Build Windows MSI installer
+        if: runner.os == 'Windows'
+        run: npm run tauri build -- --bundles msi
+      - name: Build macOS app bundle
+        if: runner.os == 'macOS'
+        run: npm run tauri build
       - name: Ad-hoc sign macOS app and rebuild DMG
         if: runner.os == 'macOS'
         shell: bash
@@ -88,6 +93,5 @@ jobs:
           name: ST-M-I-S-Windows-${{ runner.arch }}
           path: |
             src-tauri/target/release/bundle/msi/*.msi
-            src-tauri/target/release/bundle/nsis/*-setup.exe
           if-no-files-found: error
           retention-days: 14
