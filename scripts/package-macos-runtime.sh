@@ -44,6 +44,18 @@ python -m PyInstaller --noconfirm --clean --onedir \
   --collect-all paddleocr \
   --collect-all paddle \
   --collect-all paddlex \
+  --collect-data paddlex \
+  --copy-metadata paddleocr \
+  --copy-metadata paddlex \
+  --copy-metadata paddlepaddle \
+  --copy-metadata imagesize \
+  --copy-metadata opencv-contrib-python \
+  --copy-metadata pyclipper \
+  --copy-metadata pypdfium2 \
+  --copy-metadata shapely \
+  --copy-metadata jinja2 \
+  --copy-metadata regex \
+  --hidden-import scipy._cyutility \
   src-tauri/python/worker.py
 mkdir -p "$RUNTIME/stmis-worker"
 cp -R dist/stmis-worker/. "$RUNTIME/stmis-worker/"
