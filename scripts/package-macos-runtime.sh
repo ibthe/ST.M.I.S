@@ -19,6 +19,8 @@ python -m pip install -r src-tauri/python/requirements.txt pyinstaller
 # Install both translation directions into the bundled application data directory.
 export HOME="$RUNTIME/home"
 export ARGOS_CHUNK_TYPE=MINISBD
+export PYTHONUTF8=1
+export PYTHONIOENCODING=utf-8
 argospm update
 argospm install translate-en_ru
 argospm install translate-ru_en
@@ -89,6 +91,7 @@ print(json.dumps({
 }))
 PY
 
+export STMIS_REQUIRE_PADDLEOCR=1
 if ! "$RUNTIME/stmis-worker/stmis-worker" < /tmp/stmis-smoke-request.json > /tmp/stmis-smoke-result.json 2> /tmp/stmis-smoke-stderr.log; then
   echo "Bundled worker process failed. stderr:" >&2
   cat /tmp/stmis-smoke-stderr.log >&2 || true
