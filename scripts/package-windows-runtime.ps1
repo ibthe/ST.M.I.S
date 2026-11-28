@@ -30,10 +30,20 @@ $Python = Join-Path $Venv "Scripts/python.exe"
 & $Python -m pip install --upgrade pip
 & $Python -m pip install -r src-tauri/python/requirements.txt pyinstaller
 $env:ARGOS_CHUNK_TYPE = "MINISBD"
+$env:PYTHONUTF8 = "1"
+$env:PYTHONIOENCODING = "utf-8"
+# Pre-download Russian/English PP-OCRv5 multilingual models into bundled HOME.
+@'
+from paddleocr import PaddleOCR
+PaddleOCR(lang="ru", ocr_version="PP-OCRv5", use_doc_orientation_classify=False, use_doc_unwarping=False, use_textline_orientation=False, device="cpu")
+PaddleOCR(lang="en", ocr_version="PP-OCRv5", use_doc_orientation_classify=False, use_doc_unwarping=False, use_textline_orientation=False, device="cpu")
+print("PP-OCRv5 Russian and English models prepared.")
+'@ | & $Python -
+if ($LASTEXITCODE -ne 0) { throw "PaddleOCR model preparation failed." }
 & (Join-Path $Venv "Scripts/argospm.exe") update
 & (Join-Path $Venv "Scripts/argospm.exe") install translate-en_ru
 & (Join-Path $Venv "Scripts/argospm.exe") install translate-ru_en
-& $Python -m PyInstaller --noconfirm --clean --onedir --name stmis-worker --collect-all argostranslate --collect-all ctranslate2 --collect-all sentencepiece --collect-all langdetect --collect-all PIL --collect-all pytesseract src-tauri/python/worker.py
+& $Python -m PyInstaller --noconfirm --clean --onedir --name stmis-worker --collect-all argostranslate --collect-all ctranslate2 --collect-all sentencepiece --collect-all langdetect --collect-all PIL --collect-all pytesseract --collect-all paddleocr --collect-all paddle --collect-all paddlex --collect-data paddlex --copy-metadata paddleocr --copy-metadata paddlex --copy-metadata paddlepaddle --copy-metadata imagesize --copy-metadata opencv-contrib-python --copy-metadata pyclipper --copy-metadata pypdfium2 --copy-metadata shapely --copy-metadata jinja2 --copy-metadata regex --hidden-import scipy._cyutility src-tauri/python/worker.py
 Copy-Item (Join-Path $Root "dist/stmis-worker/*") (Join-Path $Runtime "stmis-worker") -Recurse -Force
 
 # Keep Argos data in the app resources. Fail the build if package data is missing.
@@ -57,5 +67,34 @@ if not {"en", "ru"}.issubset(codes):
 print("Offline English/Russian translation models verified.")
 '@ | & $Python -
 if ($LASTEXITCODE -ne 0) { throw "Offline model validation failed." }
+
+# End-to-end test: require the packaged PaddleOCR model and offline Argos translation.
+@'
+import base64, io, json
+from PIL import Image, ImageDraw, ImageFont
+image = Image.new("RGB", (1400, 300), "white")
+draw = ImageDraw.Draw(image)
+draw.text((60, 70), "Hello world", fill="black", font=ImageFont.load_default(size=100))
+buffer = io.BytesIO()
+image.save(buffer, format="PNG")
+print(json.dumps({"action":"recognize_and_translate",
+    "image_base64":base64.b64encode(buffer.getvalue()).decode("ascii"),
+    "source_language":"en","target_language":"ru","ocr_language":"eng+rus",
+    "translation_mode":"argos"}))
+'@ | & $Python - > (Join-Path $Runtime "smoke-request.json")
+if ($LASTEXITCODE -ne 0) { throw "Could not prepare OCR smoke test." }
+$env:STMIS_REQUIRE_PADDLEOCR = "1"
+Get-Content -Raw (Join-Path $Runtime "smoke-request.json") | & (Join-Path $Runtime "stmis-worker/stmis-worker.exe") > (Join-Path $Runtime "smoke-result.json")
+if ($LASTEXITCODE -ne 0) { throw "Bundled OCR/translation worker smoke test failed." }
+@'
+import json, sys
+result = json.load(open(sys.argv[1], encoding="utf-8"))
+if result.get("ok") is not True: raise SystemExit("Worker returned error: " + repr(result))
+if result.get("ocr_engine") != "paddleocr": raise SystemExit("PaddleOCR was not used: " + repr(result.get("ocr_engine")))
+if not any(x.get("translation") for x in result.get("blocks", [])): raise SystemExit("Offline translation returned no text.")
+print("Bundled PaddleOCR + Argos offline smoke test passed.")
+'@ | & $Python - (Join-Path $Runtime "smoke-result.json")
+if ($LASTEXITCODE -ne 0) { throw "Bundled PaddleOCR/Argos smoke test failed." }
+
 Write-Host "Windows offline runtime prepared:"
 (Get-ChildItem $Runtime -Recurse -File | Measure-Object -Property Length -Sum).Sum / 1GB

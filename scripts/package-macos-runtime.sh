@@ -19,9 +19,19 @@ python -m pip install -r src-tauri/python/requirements.txt pyinstaller
 # Install both translation directions into the bundled application data directory.
 export HOME="$RUNTIME/home"
 export ARGOS_CHUNK_TYPE=MINISBD
+export PYTHONUTF8=1
+export PYTHONIOENCODING=utf-8
 argospm update
 argospm install translate-en_ru
 argospm install translate-ru_en
+
+# Pre-download Russian/English PP-OCRv5 multilingual models into bundled HOME.
+python - <<'PY'
+from paddleocr import PaddleOCR
+PaddleOCR(lang="ru", ocr_version="PP-OCRv5", use_doc_orientation_classify=False, use_doc_unwarping=False, use_textline_orientation=False, device="cpu", enable_mkldnn=False)
+PaddleOCR(lang="en", ocr_version="PP-OCRv5", use_doc_orientation_classify=False, use_doc_unwarping=False, use_textline_orientation=False, device="cpu", enable_mkldnn=False)
+print("PP-OCRv5 Russian and English models prepared.")
+PY
 
 python -m PyInstaller --noconfirm --clean --onedir \
   --name stmis-worker \
@@ -31,6 +41,21 @@ python -m PyInstaller --noconfirm --clean --onedir \
   --collect-all langdetect \
   --collect-all PIL \
   --collect-all pytesseract \
+  --collect-all paddleocr \
+  --collect-all paddle \
+  --collect-all paddlex \
+  --collect-data paddlex \
+  --copy-metadata paddleocr \
+  --copy-metadata paddlex \
+  --copy-metadata paddlepaddle \
+  --copy-metadata imagesize \
+  --copy-metadata opencv-contrib-python \
+  --copy-metadata pyclipper \
+  --copy-metadata pypdfium2 \
+  --copy-metadata shapely \
+  --copy-metadata jinja2 \
+  --copy-metadata regex \
+  --hidden-import scipy._cyutility \
   src-tauri/python/worker.py
 mkdir -p "$RUNTIME/stmis-worker"
 cp -R dist/stmis-worker/. "$RUNTIME/stmis-worker/"
@@ -73,10 +98,12 @@ print(json.dumps({
     "image_base64": base64.b64encode(buffer.getvalue()).decode("ascii"),
     "source_language": "en",
     "target_language": "ru",
-    "ocr_language": "eng"
+    "ocr_language": "eng+rus",
+    "translation_mode": "argos"
 }))
 PY
 
+export STMIS_REQUIRE_PADDLEOCR=1
 if ! "$RUNTIME/stmis-worker/stmis-worker" < /tmp/stmis-smoke-request.json > /tmp/stmis-smoke-result.json 2> /tmp/stmis-smoke-stderr.log; then
   echo "Bundled worker process failed. stderr:" >&2
   cat /tmp/stmis-smoke-stderr.log >&2 || true
@@ -91,6 +118,8 @@ with open("/tmp/stmis-smoke-result.json", encoding="utf-8") as stream:
     result = json.load(stream)
 if result.get("ok") is not True:
     raise SystemExit("Bundled worker returned an error: " + repr(result))
+if result.get("ocr_engine") != "paddleocr":
+    raise SystemExit("PaddleOCR was not used by the packaged worker: " + repr(result.get("ocr_engine")))
 if not result.get("blocks"):
     raise SystemExit("OCR smoke test returned no text blocks: " + repr(result))
 if not any(block.get("translation") for block in result["blocks"]):

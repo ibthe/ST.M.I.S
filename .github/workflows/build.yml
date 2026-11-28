@@ -6,7 +6,7 @@ concurrency:
 
 on:
   push:
-    branches: [main, fix/transparent-overlay-layout]
+    branches: [main, fix/transparent-overlay-layout, feature/ocr-online-translation]
   pull_request:
     branches: [main]
 
@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m py_compile src-tauri/python/worker.py
+      - run: python -m py_compile src-tauri/python/worker.py src-tauri/python/ocr.py src-tauri/python/translators.py
       - run: npm install
       - run: npm run build
 
@@ -56,7 +56,12 @@ jobs:
       - name: Prepare bundled offline runtime (Apple Silicon)
         if: runner.os == 'macOS' && runner.arch == 'ARM64'
         run: bash scripts/package-macos-runtime.sh
-      - run: npm run tauri build
+      - name: Build Windows MSI installer
+        if: runner.os == 'Windows'
+        run: npm run tauri build -- --bundles msi
+      - name: Build macOS app bundle
+        if: runner.os == 'macOS'
+        run: npm run tauri build
       - name: Ad-hoc sign macOS app and rebuild DMG
         if: runner.os == 'macOS'
         shell: bash
@@ -88,6 +93,5 @@ jobs:
           name: ST-M-I-S-Windows-${{ runner.arch }}
           path: |
             src-tauri/target/release/bundle/msi/*.msi
-            src-tauri/target/release/bundle/nsis/*-setup.exe
           if-no-files-found: error
           retention-days: 14
