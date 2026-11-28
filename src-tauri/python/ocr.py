@@ -21,6 +21,7 @@ def _paddle_instance(language: str):
         use_doc_unwarping=False,
         use_textline_orientation=False,
         device="cpu",
+        enable_mkldnn=False,
     )
     return _PADDLE
 
